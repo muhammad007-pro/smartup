@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "simkarta-mobile",
+    "slug": "simkarta-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "uz.simkarta.app",
+      "permissions": ["ACCESS_FINE_LOCATION", "CAMERA"],
+      "adaptiveIcon": {
+        "backgroundColor": "#1b8a5a",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-image-picker",
+      [
+        "expo-location",
+        { "locationWhenInUsePermission": "Savdo nuqtasini ochish uchun joylashuv kerak" }
+      ]
+    ]
+  }
+}
