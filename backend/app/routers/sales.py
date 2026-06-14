@@ -125,7 +125,7 @@ async def sell_from_office(
     return sale
 
 
-@router.get("/me", response_model=list[SaleResponse])
+@router.get("/me", response_model=list[SaleDetailResponse])
 async def my_sales(
     limit: int = Query(default=200, le=500),
     date_from: str | None = None,
@@ -133,15 +133,27 @@ async def my_sales(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """O'zim amalga oshirgan sotuvlar. Sana filtri: date_from/date_to (YYYY-MM-DD)."""
-    q = select(Sale).where(Sale.seller_id == current_user.id)
+    """O'zim amalga oshirgan sotuvlar (tochka nomi bilan). Sana filtri: date_from/date_to."""
+    q = (
+        select(Sale, Point.name)
+        .outerjoin(Point, Sale.point_id == Point.id)
+        .where(Sale.seller_id == current_user.id)
+    )
     if date_from:
         q = q.where(Sale.created_at >= datetime.fromisoformat(date_from).replace(tzinfo=timezone.utc))
     if date_to:
         q = q.where(Sale.created_at < datetime.fromisoformat(date_to).replace(tzinfo=timezone.utc) + timedelta(days=1))
     q = q.order_by(Sale.created_at.desc()).limit(limit)
-    result = await db.execute(q)
-    return result.scalars().all()
+    rows = (await db.execute(q)).all()
+    return [
+        SaleDetailResponse(
+            id=s.id, seller_id=s.seller_id, seller_name=None,
+            operator=s.operator, source=s.source,
+            point_id=s.point_id, point_name=point_name,
+            created_at=s.created_at,
+        )
+        for s, point_name in rows
+    ]
 
 
 @router.get("", response_model=list[SaleDetailResponse])

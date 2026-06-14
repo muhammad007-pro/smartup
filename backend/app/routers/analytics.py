@@ -48,17 +48,16 @@ async def get_ratings(
     sellers_q = apply_date(sellers_q, Sale.created_at)
     sellers_rows = (await db.execute(sellers_q)).all()
 
-    # --- Agentlar reytingi (agent ochiln tochkalardagi jami sotuvlar) ---
+    # --- Agentlar reytingi (ochgan tochkalar soni bo'yicha) ---
     agents_q = (
-        select(User.id, User.full_name, func.count(Sale.id).label("cnt"))
+        select(User.id, User.full_name, func.count(Point.id).label("cnt"))
         .join(Point, Point.agent_id == User.id)
-        .join(Sale, Sale.point_id == Point.id)
         .where(User.role == "agent")
+        .where(Point.is_archived == False)  # noqa: E712
         .group_by(User.id, User.full_name)
-        .order_by(func.count(Sale.id).desc())
+        .order_by(func.count(Point.id).desc())
         .limit(20)
     )
-    agents_q = apply_date(agents_q, Sale.created_at)
     agents_rows = (await db.execute(agents_q)).all()
 
     # --- Tochkalar reytingi ---

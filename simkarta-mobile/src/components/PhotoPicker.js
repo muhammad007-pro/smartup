@@ -5,27 +5,10 @@ import { colors } from '../theme';
 
 export default function PhotoPicker({ label, uri, onPicked, uploading }) {
   const pick = async () => {
-    Alert.alert(label, 'Rasm qayerdan olinsin?', [
-      {
-        text: 'Kamera',
-        onPress: async () => {
-          const { status } = await ImagePicker.requestCameraPermissionsAsync();
-          if (status !== 'granted') { Alert.alert('Xato', 'Kamera ruxsati kerak'); return; }
-          const res = await ImagePicker.launchCameraAsync({ quality: 0.7, allowsEditing: true });
-          if (!res.canceled) onPicked(res.assets[0].uri);
-        },
-      },
-      {
-        text: 'Galereya',
-        onPress: async () => {
-          const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-          if (status !== 'granted') { Alert.alert('Xato', 'Galereya ruxsati kerak'); return; }
-          const res = await ImagePicker.launchImageLibraryAsync({ quality: 0.7, allowsEditing: true });
-          if (!res.canceled) onPicked(res.assets[0].uri);
-        },
-      },
-      { text: 'Bekor', style: 'cancel' },
-    ]);
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') { Alert.alert('Xato', 'Kamera ruxsati kerak'); return; }
+    const res = await ImagePicker.launchCameraAsync({ quality: 0.7, allowsEditing: true });
+    if (!res.canceled) onPicked(res.assets[0].uri);
   };
 
   return (

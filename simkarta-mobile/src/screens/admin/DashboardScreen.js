@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  RefreshControl, ActivityIndicator, StatusBar,
+  RefreshControl, ActivityIndicator, StatusBar, TouchableOpacity,
 } from 'react-native';
 import api from '../../api';
 import { getUser } from '../../auth';
@@ -15,7 +15,7 @@ const OPERATORS = [
   { key: 'oq',       label: 'OQ',       color: '#1a1a1a', textColor: '#ffffff' },
 ];
 
-export default function AdminDashboard() {
+export default function AdminDashboard({ navigation }) {
   const [data, setData]       = useState(null);
   const [user, setUser]       = useState(null);
   const [loading, setLoading] = useState(true);
@@ -68,10 +68,14 @@ export default function AdminDashboard() {
       {/* Statistika kartalar */}
       <Text style={styles.sectionTitle}>Umumiy statistika</Text>
       <View style={styles.statsGrid}>
-        <StatCard label="Hodimlar"      value={d.total_users  ?? 0} icon="👥" accent={colors.primary} />
-        <StatCard label="Tochkalar"     value={d.total_points ?? 0} icon="📍" accent="#0066CC" />
-        <StatCard label="Jami sotuvlar" value={d.total_sales  ?? 0} icon="📦" accent="#8B2FC9" />
-        <StatCard label="Bugun"         value={d.sales_today  ?? 0} icon="⚡" accent="#E32119" />
+        <StatCard label="Hodimlar"      value={d.total_users  ?? 0} icon="👥" accent={colors.primary}
+          onPress={() => navigation.navigate('Users')} />
+        <StatCard label="Tochkalar"     value={d.total_points ?? 0} icon="📍" accent="#0066CC"
+          onPress={() => navigation.navigate('AdminPoints')} />
+        <StatCard label="Jami sotuvlar" value={d.total_sales  ?? 0} icon="📦" accent="#8B2FC9"
+          onPress={() => navigation.navigate('SalesHistory')} />
+        <StatCard label="Bugun"         value={d.sales_today  ?? 0} icon="⚡" accent="#E32119"
+          onPress={() => navigation.navigate('SalesHistory', { preset: 'today' })} />
       </View>
 
       {/* Operator qoldiqlari */}
@@ -91,13 +95,13 @@ export default function AdminDashboard() {
   );
 }
 
-function StatCard({ label, value, icon, accent }) {
+function StatCard({ label, value, icon, accent, onPress }) {
   return (
-    <View style={[styles.statCard, { borderTopColor: accent }]}>
+    <TouchableOpacity style={[styles.statCard, { borderTopColor: accent }]} onPress={onPress} activeOpacity={0.75}>
       <Text style={styles.statIcon}>{icon}</Text>
       <Text style={[styles.statValue, { color: accent }]}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
-    </View>
+    </TouchableOpacity>
   );
 }
 

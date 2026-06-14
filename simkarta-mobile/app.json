@@ -11,7 +11,12 @@
     },
     "android": {
       "package": "uz.simkarta.app",
-      "permissions": ["ACCESS_FINE_LOCATION", "CAMERA"],
+      "permissions": [
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#1b8a5a",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -27,8 +32,16 @@
       "expo-image-picker",
       [
         "expo-location",
-        { "locationWhenInUsePermission": "Savdo nuqtasini ochish uchun joylashuv kerak" }
-      ]
-    ]
+        {
+          "locationWhenInUsePermission": "Savdo nuqtasini ochish uchun joylashuv kerak"
+        }
+      ],
+      "@react-native-community/datetimepicker"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "4d18e3f8-25d6-430e-a9d5-98c2e4e89f9e"
+      }
+    }
   }
 }

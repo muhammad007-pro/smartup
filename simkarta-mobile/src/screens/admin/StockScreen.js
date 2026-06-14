@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   Modal, Alert, ActivityIndicator, RefreshControl,
-  KeyboardAvoidingView, Platform, TextInput,
+  KeyboardAvoidingView, Platform, TextInput, ScrollView,
 } from 'react-native';
 import api from '../../api';
 import { colors } from '../../theme';
@@ -15,16 +15,16 @@ const OPERATORS = [
   { key: 'oq',       label: 'OQ',       color: '#1a1a1a', textColor: '#ffffff' },
 ];
 
+const EMPTY_QTY = { beeline: '', ucell: '', uzmobile: '', mobiuz: '', oq: '' };
+
 export default function StockScreen() {
   const [users, setUsers]       = useState([]);
   const [loading, setLoading]   = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [modal, setModal]       = useState(false);
   const [saving, setSaving]     = useState(false);
-
   const [selectedUser, setSelectedUser] = useState(null);
-  const [selectedOp, setSelectedOp]     = useState('beeline');
-  const [qty, setQty]                   = useState('');
+  const [qtys, setQtys]         = useState(EMPTY_QTY);
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -39,34 +39,43 @@ export default function StockScreen() {
   }, []);
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
-
   const onRefresh = () => { setRefreshing(true); fetchUsers(); };
 
   const openIssue = (user) => {
     setSelectedUser(user);
-    setSelectedOp('beeline');
-    setQty('');
+    setQtys(EMPTY_QTY);
     setModal(true);
   };
 
-  const handleIssue = async () => {
-    const n = parseInt(qty, 10);
-    if (!n || n <= 0) {
-      Alert.alert('Xato', "To'g'ri miqdor kiriting");
+  const handleIssueAll = async () => {
+    const entries = OPERATORS.filter(op => parseInt(qtys[op.key], 10) > 0)
+      .map(op => ({ operator: op.key, qty: parseInt(qtys[op.key], 10) }));
+
+    if (entries.length === 0) {
+      Alert.alert('Xato', 'Kamida bitta operator uchun miqdor kiriting');
       return;
     }
+
     setSaving(true);
+    const errors = [];
+    let successCount = 0;
     try {
-      await api.post('/stock/issue', {
-        to_user_id: selectedUser.id,
-        operator: selectedOp,
-        qty: n,
-      });
+      for (const { operator, qty } of entries) {
+        try {
+          await api.post('/stock/issue', { to_user_id: selectedUser.id, operator, qty });
+          successCount++;
+        } catch (e) {
+          errors.push(`${operator}: ${e.response?.data?.detail || 'xato'}`);
+        }
+      }
       setModal(false);
-      Alert.alert('Muvaffaqiyatli', `${selectedUser.full_name}ga ${n} ta ${selectedOp} berildi`);
+      if (errors.length === 0) {
+        const summary = entries.map(e => `${e.operator} ${e.qty}ta`).join(', ');
+        Alert.alert('Muvaffaqiyatli', `${selectedUser.full_name}ga berildi:\n${summary}`);
+      } else {
+        Alert.alert('Qisman muvaffaqiyat', `${successCount} ta berildi.\nXatolar:\n${errors.join('\n')}`);
+      }
       fetchUsers();
-    } catch (e) {
-      Alert.alert('Xato', e.response?.data?.detail || "Berib bo'lmadi");
     } finally {
       setSaving(false);
     }
@@ -85,7 +94,6 @@ export default function StockScreen() {
         <Text style={styles.headerSub}>Hodimga simkarta berish</Text>
       </View>
 
-      {/* Operator ranglari izoh */}
       <View style={styles.legend}>
         {OPERATORS.map(op => (
           <View key={op.key} style={styles.legendItem}>
@@ -114,7 +122,6 @@ export default function StockScreen() {
                 <Text style={styles.issueBtnText}>Berish</Text>
               </TouchableOpacity>
             </View>
-
             <View style={styles.opGrid}>
               {OPERATORS.map(op => (
                 <View key={op.key} style={styles.opCell}>
@@ -127,7 +134,7 @@ export default function StockScreen() {
         )}
       />
 
-      {/* Berish modali */}
+      {/* Ko'p operator birdan berish modali */}
       <Modal visible={modal} animationType="slide" transparent>
         <KeyboardAvoidingView
           style={styles.modalOverlay}
@@ -136,53 +143,41 @@ export default function StockScreen() {
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>Simkarta berish</Text>
             {selectedUser && (
-              <Text style={styles.modalSub}>{selectedUser.full_name}</Text>
+              <Text style={styles.modalSub}>{selectedUser.full_name} · {selectedUser.phone}</Text>
             )}
 
-            <Text style={styles.fieldLabel}>Operator</Text>
-            <View style={styles.opSelector}>
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              <Text style={styles.fieldLabel}>Har operator uchun miqdor kiriting</Text>
               {OPERATORS.map(op => (
-                <TouchableOpacity
-                  key={op.key}
-                  style={[
-                    styles.opOption,
-                    { borderColor: op.color },
-                    selectedOp === op.key && { backgroundColor: op.color },
-                  ]}
-                  onPress={() => setSelectedOp(op.key)}
-                >
-                  <Text style={[
-                    styles.opOptionText,
-                    selectedOp === op.key && { color: op.textColor },
-                  ]}>
-                    {op.label}
-                  </Text>
-                </TouchableOpacity>
+                <View key={op.key} style={styles.opRow}>
+                  <View style={[styles.opBadge, { backgroundColor: op.color }]}>
+                    <Text style={[styles.opBadgeText, { color: op.textColor }]}>{op.label}</Text>
+                  </View>
+                  <TextInput
+                    style={styles.opInput}
+                    placeholder="0"
+                    placeholderTextColor={colors.textSecondary}
+                    value={qtys[op.key]}
+                    onChangeText={v => setQtys(q => ({ ...q, [op.key]: v }))}
+                    keyboardType="number-pad"
+                    returnKeyType="next"
+                  />
+                  <Text style={styles.opUnit}>ta</Text>
+                </View>
               ))}
-            </View>
 
-            <Text style={styles.fieldLabel}>Miqdor</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Nechta? (masalan: 50)"
-              placeholderTextColor={colors.textSecondary}
-              value={qty}
-              onChangeText={setQty}
-              keyboardType="number-pad"
-              returnKeyType="done"
-            />
-
-            <View style={styles.modalBtns}>
-              <TouchableOpacity style={styles.cancelBtn} onPress={() => setModal(false)}>
-                <Text style={styles.cancelText}>Bekor</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.confirmBtn} onPress={handleIssue} disabled={saving}>
-                {saving
-                  ? <ActivityIndicator color="#fff" />
-                  : <Text style={styles.confirmText}>Berish</Text>
-                }
-              </TouchableOpacity>
-            </View>
+              <View style={styles.modalBtns}>
+                <TouchableOpacity style={styles.cancelBtn} onPress={() => setModal(false)}>
+                  <Text style={styles.cancelText}>Bekor</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.confirmBtn} onPress={handleIssueAll} disabled={saving}>
+                  {saving
+                    ? <ActivityIndicator color="#fff" />
+                    : <Text style={styles.confirmText}>Berish</Text>
+                  }
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -196,20 +191,16 @@ const styles = StyleSheet.create({
 
   header: {
     backgroundColor: colors.primary,
-    paddingTop: 52,
-    paddingBottom: 16,
-    paddingHorizontal: 20,
+    paddingTop: 52, paddingBottom: 16, paddingHorizontal: 20,
   },
   headerTitle: { fontSize: 22, fontWeight: '700', color: '#fff' },
   headerSub:   { fontSize: 13, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
 
   legend: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+    flexDirection: 'row', justifyContent: 'space-around',
     backgroundColor: colors.white,
     paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
   },
   legendItem:  { flexDirection: 'row', alignItems: 'center', gap: 4 },
   legendDot:   { width: 10, height: 10, borderRadius: 5 },
@@ -218,14 +209,9 @@ const styles = StyleSheet.create({
   list: { padding: 12, gap: 10, paddingBottom: 90 },
 
   card: {
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    padding: 14,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
+    backgroundColor: colors.white, borderRadius: 12, padding: 14,
+    elevation: 2, shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4,
   },
   cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   cardName:   { fontSize: 15, fontWeight: '600', color: colors.text },
@@ -245,27 +231,23 @@ const styles = StyleSheet.create({
   modalBox: {
     backgroundColor: colors.white,
     borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    padding: 24, paddingBottom: 40,
+    padding: 24, paddingBottom: 36, maxHeight: '85%',
   },
   modalTitle: { fontSize: 18, fontWeight: '700', color: colors.text },
-  modalSub:   { fontSize: 14, color: colors.textSecondary, marginTop: 2, marginBottom: 16 },
+  modalSub:   { fontSize: 13, color: colors.textSecondary, marginTop: 2, marginBottom: 16 },
+  fieldLabel: { fontSize: 12, fontWeight: '600', color: colors.textSecondary, marginBottom: 12, textTransform: 'uppercase' },
 
-  fieldLabel: { fontSize: 12, fontWeight: '600', color: colors.textSecondary, marginBottom: 8, textTransform: 'uppercase' },
-
-  opSelector: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-  opOption: {
-    borderWidth: 2, borderRadius: 8,
-    paddingHorizontal: 12, paddingVertical: 7,
+  opRow:     { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 10 },
+  opBadge:   { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, minWidth: 76, alignItems: 'center' },
+  opBadgeText: { fontSize: 12, fontWeight: '700' },
+  opInput:   {
+    flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 8,
+    padding: 10, fontSize: 16, color: colors.text,
+    backgroundColor: colors.background, textAlign: 'center',
   },
-  opOptionText: { fontSize: 13, fontWeight: '700', color: colors.text },
+  opUnit:    { fontSize: 13, color: colors.textSecondary, minWidth: 20 },
 
-  input: {
-    borderWidth: 1, borderColor: colors.border, borderRadius: 10,
-    padding: 13, fontSize: 16, color: colors.text,
-    backgroundColor: colors.background, marginBottom: 20,
-  },
-
-  modalBtns:  { flexDirection: 'row', gap: 10 },
+  modalBtns:  { flexDirection: 'row', gap: 10, marginTop: 16 },
   cancelBtn:  { flex: 1, borderWidth: 1.5, borderColor: colors.border, borderRadius: 10, padding: 14, alignItems: 'center' },
   cancelText: { fontWeight: '600', color: colors.textSecondary },
   confirmBtn: { flex: 1, backgroundColor: colors.primary, borderRadius: 10, padding: 14, alignItems: 'center' },

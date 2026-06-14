@@ -21,6 +21,7 @@ import AgentHome         from '../screens/agent/HomeScreen';
 import PointsScreen      from '../screens/agent/PointsScreen';
 import SellerHome        from '../screens/seller/HomeScreen';
 import SellScreen        from '../screens/seller/SellScreen';
+import SalesHistoryScreen from '../screens/SalesHistoryScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab   = createBottomTabNavigator();
@@ -109,6 +110,12 @@ function SellerTabs({ navigation }) {
         initialParams={{ sellerMode: true }}
         options={{ title: 'Reyting', tabBarIcon: tabIcon('trophy-outline') }}
       />
+      <Tab.Screen
+        name="SellerSalesHistory"
+        component={SalesHistoryScreen}
+        initialParams={{ sellerMode: true }}
+        options={{ title: 'Tarix', tabBarIcon: tabIcon('time-outline') }}
+      />
     </Tab.Navigator>
   );
 }
@@ -132,6 +139,16 @@ export default function AppNavigator() {
           options={({ route }) => ({
             headerShown: true,
             title: route.params?.pointName || 'Tochka',
+            headerTintColor: colors.primary,
+            headerTitleStyle: { fontWeight: '700' },
+          })}
+        />
+        <Stack.Screen
+          name="SalesHistory"
+          component={SalesHistoryScreen}
+          options={({ route }) => ({
+            headerShown: true,
+            title: route.params?.sellerMode ? 'Sotuvlarim' : 'Barcha sotuvlar',
             headerTintColor: colors.primary,
             headerTitleStyle: { fontWeight: '700' },
           })}

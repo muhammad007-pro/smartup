@@ -96,6 +96,9 @@ export default function PointsScreen() {
     if (!form.lat) {
       Alert.alert('Xato', 'GPS koordinatani oling'); return;
     }
+    if (!form.photos.outside || !form.photos.inside || !form.photos.ad) {
+      Alert.alert('Xato', 'Barcha 3 ta rasm majburiy (tashqi, ichki, reklama)'); return;
+    }
     const stockEntries = OPERATORS
       .filter(op => parseInt(form.stock[op.key], 10) > 0)
       .map(op => ({ operator: op.key, qty: parseInt(form.stock[op.key], 10) }));
@@ -228,7 +231,7 @@ export default function PointsScreen() {
                 }
               </TouchableOpacity>
 
-              <Text style={styles.fieldLabel}>Rasmlar (ixtiyoriy)</Text>
+              <Text style={styles.fieldLabel}>Rasmlar (majburiy)</Text>
               <PhotoPicker label="Tashqi ko'rinish" uri={form.photos.outside}
                 onPicked={uri => handlePhoto('outside', uri)} uploading={uploadingPhoto === 'outside'} />
               <PhotoPicker label="Ichki ko'rinish" uri={form.photos.inside}
