@@ -81,8 +81,28 @@ export default function SellScreen() {
 
   const doSell = async () => {
     setSelling(true);
+    const opLabel = OPERATORS.find(o => o.key === selectedOp)?.label || selectedOp;
+
+    // Optimistic update: immediately decrement local stock
+    const prevStock  = stock;
+    const prevPoints = points;
+    setStock(stock.map(s =>
+      s.operator === selectedOp ? { ...s, qty: Math.max(s.qty - 1, 0) } : s
+    ));
+    if (mode === 'point' && selectedPoint) {
+      setPoints(points.map(p =>
+        p.id === selectedPoint.id
+          ? {
+              ...p,
+              point_stock: (p.point_stock || []).map(ps =>
+                ps.operator === selectedOp ? { ...ps, qty: Math.max(ps.qty - 1, 0) } : ps
+              ),
+            }
+          : p
+      ));
+    }
+
     try {
-      const opLabel = OPERATORS.find(o => o.key === selectedOp)?.label || selectedOp;
       if (mode === 'office') {
         await api.post('/sales/office', { operator: selectedOp });
         showToast(`${opLabel} — ofisdan sotildi`);
@@ -92,8 +112,11 @@ export default function SellScreen() {
       }
       setSelectedOp(null);
       setSelectedPoint(null);
-      fetchData();
+      fetchData(); // background refresh to sync server state
     } catch (e) {
+      // Revert optimistic update on failure
+      setStock(prevStock);
+      setPoints(prevPoints);
       showToast(e.response?.data?.detail || "Sotib bo'lmadi", 'error');
     } finally {
       setSelling(false);

@@ -170,13 +170,7 @@ export default function AppNavigator() {
         <Stack.Screen
           name="SalesHistory"
           component={SalesHistoryScreen}
-          options={({ route }) => ({
-            headerShown: true,
-            title: route.params?.sellerMode ? 'Sotuvlarim' : 'Barcha sotuvlar',
-            headerStyle:      { backgroundColor: theme.primary },
-            headerTintColor:  '#fff',
-            headerTitleStyle: { fontWeight: '700', fontSize: 17 },
-          })}
+          options={{ headerShown: false }}
         />
         <Stack.Screen
           name="Notifications"

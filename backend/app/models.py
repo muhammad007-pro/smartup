@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime, timezone
 from sqlalchemy import (
     String, Text, Integer, Boolean, Float,
-    ForeignKey, DateTime,
+    ForeignKey, DateTime, Index,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .database import Base
@@ -37,7 +37,6 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
-    # Bog'liqliklar
     stock: Mapped[list["Stock"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     points: Mapped[list["Point"]] = relationship(back_populates="agent")
     sales: Mapped[list["Sale"]] = relationship(back_populates="seller")
@@ -47,7 +46,6 @@ class User(Base):
 
 # ---------------------------------------------------------------------------
 # Har hodimning simkarta zaxirasi
-# operator: beeline | ucell | uzmobile | mobiuz | oq
 # ---------------------------------------------------------------------------
 class Stock(Base):
     __tablename__ = "stock"
@@ -66,6 +64,11 @@ class Stock(Base):
 # ---------------------------------------------------------------------------
 class Point(Base):
     __tablename__ = "points"
+    __table_args__ = (
+        Index('ix_points_agent_id', 'agent_id'),
+        Index('ix_points_is_archived', 'is_archived'),
+        Index('ix_points_created_at', 'created_at'),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     agent_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
@@ -73,7 +76,7 @@ class Point(Base):
     location: Mapped[str] = mapped_column(Text, nullable=False)
     lat: Mapped[float | None] = mapped_column(Float)
     lng: Mapped[float | None] = mapped_column(Float)
-    photo_outside: Mapped[str | None] = mapped_column(Text)   # Cloudinary URL
+    photo_outside: Mapped[str | None] = mapped_column(Text)
     photo_inside: Mapped[str | None] = mapped_column(Text)
     photo_ad: Mapped[str | None] = mapped_column(Text)
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -107,6 +110,12 @@ class PointStock(Base):
 # ---------------------------------------------------------------------------
 class Sale(Base):
     __tablename__ = "sales"
+    __table_args__ = (
+        Index('ix_sales_seller_created', 'seller_id', 'created_at'),
+        Index('ix_sales_point_id', 'point_id'),
+        Index('ix_sales_created_at', 'created_at'),
+        Index('ix_sales_operator', 'operator'),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     seller_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
@@ -139,10 +148,14 @@ class Issue(Base):
 # ---------------------------------------------------------------------------
 class ActivityLog(Base):
     __tablename__ = "activity_log"
+    __table_args__ = (
+        Index('ix_activity_log_created_at', 'created_at'),
+        Index('ix_activity_log_user_id', 'user_id'),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
-    type: Mapped[str] = mapped_column(String(50), nullable=False)  # point_open|sale|issue...
+    type: Mapped[str] = mapped_column(String(50), nullable=False)
     text: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
@@ -154,9 +167,13 @@ class ActivityLog(Base):
 # ---------------------------------------------------------------------------
 class Notification(Base):
     __tablename__ = "notifications"
+    __table_args__ = (
+        Index('ix_notifications_created_at', 'created_at'),
+        Index('ix_notifications_is_read', 'is_read'),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
-    type: Mapped[str] = mapped_column(String(30), nullable=False)   # point_open | point_update
+    type: Mapped[str] = mapped_column(String(30), nullable=False)
     title: Mapped[str] = mapped_column(Text, nullable=False)
     body: Mapped[str] = mapped_column(Text, nullable=False)
     is_read: Mapped[bool] = mapped_column(Boolean, default=False)

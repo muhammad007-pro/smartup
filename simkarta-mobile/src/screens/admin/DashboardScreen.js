@@ -149,6 +149,47 @@ export default function AdminDashboard({ navigation }) {
           ))}
         </View>
 
+        {/* Kam qolgan operatorlar */}
+        {(d.low_stock_alerts || []).length > 0 && (
+          <>
+            <Text style={[styles.sectionTitle, { color: '#dc2626' }]}>Ogohlantirish</Text>
+            <View style={styles.alertsWrap}>
+              {d.low_stock_alerts.map(al => {
+                const op = OPERATORS.find(o => o.key === al.operator);
+                const isEmpty = al.total_qty === 0;
+                const accentColor = isEmpty ? '#dc2626' : '#F59E0B';
+                return (
+                  <View
+                    key={al.operator}
+                    style={[
+                      styles.alertCard,
+                      { borderLeftColor: accentColor, backgroundColor: theme.surface },
+                      isDark
+                        ? { borderWidth: 1, borderLeftWidth: 4, borderColor: theme.border, borderLeftColor: accentColor }
+                        : theme.card,
+                    ]}
+                  >
+                    <View style={[styles.alertBadge, { backgroundColor: op?.color || '#999' }]}>
+                      <Text style={[styles.alertBadgeText, { color: op?.text || '#fff' }]}>
+                        {op?.label || al.operator.toUpperCase()}
+                      </Text>
+                    </View>
+                    <View style={styles.alertBody}>
+                      <Text style={[styles.alertTitle, { color: isEmpty ? '#dc2626' : '#B45309' }]}>
+                        {isEmpty ? 'Tugadi!' : 'Kam qoldi'}
+                      </Text>
+                      <Text style={[styles.alertSub, { color: theme.textSub }]}>
+                        {al.total_qty} ta qoldi (chegara: {al.threshold})
+                      </Text>
+                    </View>
+                    <Ionicons name="warning" size={20} color={accentColor} />
+                  </View>
+                );
+              })}
+            </View>
+          </>
+        )}
+
         {/* 7 kun sotuv grafigi */}
         <Text style={[styles.sectionTitle, { color: theme.textSub }]}>So'ngi 7 kun</Text>
         <View style={[styles.chartCard, isDark ? { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border } : { backgroundColor: theme.surface, ...theme.card }]}>
@@ -278,6 +319,18 @@ const styles = StyleSheet.create({
   chartCard: { marginHorizontal: 16, borderRadius: 14, padding: 12, overflow: 'hidden' },
   chartEmpty: { height: 120, alignItems: 'center', justifyContent: 'center', gap: 8 },
   chartEmptyText: { fontSize: 13 },
+
+  alertsWrap: { marginHorizontal: 16, gap: 8 },
+  alertCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    borderRadius: 12, padding: 12,
+    borderLeftWidth: 4,
+  },
+  alertBadge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, minWidth: 72, alignItems: 'center' },
+  alertBadgeText: { fontSize: 11, fontWeight: '700' },
+  alertBody: { flex: 1 },
+  alertTitle: { fontSize: 13, fontWeight: '700' },
+  alertSub:   { fontSize: 11, marginTop: 1 },
 
   operatorCard: { marginHorizontal: 16, borderRadius: 14, overflow: 'hidden' },
   opRow: {

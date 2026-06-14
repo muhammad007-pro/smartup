@@ -1,8 +1,5 @@
 """
 Pydantic sxemalari — API request/response formatlarini belgilaydi.
-
-from_attributes=True: SQLAlchemy model obyektidan Pydantic modelga
-to'g'ridan-to'g'ri aylantirish uchun kerak.
 """
 from datetime import datetime
 from pydantic import BaseModel
@@ -44,7 +41,6 @@ class UserCreate(BaseModel):
 
 
 class UserUpdate(BaseModel):
-    """Hamma maydon ixtiyoriy — faqat kelgani o'zgartiriladi."""
     full_name: str | None = None
     phone: str | None = None
     password: str | None = None
@@ -52,7 +48,6 @@ class UserUpdate(BaseModel):
 
 
 class UserWithStock(BaseModel):
-    """Admin uchun — hodim + uning zaxirasi."""
     id: str
     full_name: str
     phone: str
@@ -100,15 +95,10 @@ class PointCreate(BaseModel):
     location: str
     lat: float
     lng: float
-    stock: list[StockEntry] = []   # ixtiyoriy boshlang'ich simkartalar
+    stock: list[StockEntry] = []
 
 
 class PointUpdate(BaseModel):
-    """
-    Agent tochkani yangilaydi.
-    current_lat/lng — agentning hozirgi joylashuvi (server GPS tekshiruvi uchun).
-    stock — tochkaga QO'SHILADIGAN simkartalar (minus emas, faqat plus).
-    """
     current_lat: float
     current_lng: float
     stock: list[StockEntry] = []
@@ -134,7 +124,6 @@ class PointResponse(BaseModel):
 
 
 class SaleDetailResponse(BaseModel):
-    """Sotuv + sotuvchi ismi + tochka nomi (admin uchun)."""
     id: str
     seller_id: str
     seller_name: str | None = None
@@ -145,8 +134,13 @@ class SaleDetailResponse(BaseModel):
     created_at: datetime
 
 
+class PagedSalesResponse(BaseModel):
+    items: list[SaleDetailResponse]
+    total: int
+    has_more: bool
+
+
 class PointDetailResponse(BaseModel):
-    """Tochka + to'liq sotuv tarixi (admin uchun)."""
     id: str
     agent_id: str
     agent_name: str | None = None
@@ -173,7 +167,6 @@ class RatingsResponse(BaseModel):
 
 
 class PointWithStock(BaseModel):
-    """GET /points — tochka + undagi simkarta qoldig'i."""
     id: str
     agent_id: str
     agent_name: str | None = None
@@ -196,13 +189,11 @@ class PointWithStock(BaseModel):
 # Sotuv
 # ---------------------------------------------------------------------------
 class SalePointRequest(BaseModel):
-    """Tochkadan sotish."""
     point_id: str
     operator: str
 
 
 class SaleOfficeRequest(BaseModel):
-    """Offisda o'z zaxirasidan sotish."""
     operator: str
 
 
@@ -221,8 +212,14 @@ class SaleResponse(BaseModel):
 # Admin
 # ---------------------------------------------------------------------------
 class SalesByDayEntry(BaseModel):
-    date: str   # "YYYY-MM-DD"
+    date: str
     count: int
+
+
+class LowStockAlert(BaseModel):
+    operator: str
+    total_qty: int
+    threshold: int
 
 
 class DashboardResponse(BaseModel):
@@ -233,6 +230,7 @@ class DashboardResponse(BaseModel):
     stock_by_operator: dict[str, int]
     sales_by_day: list[SalesByDayEntry] = []
     sales_by_operator: dict[str, int] = {}
+    low_stock_alerts: list[LowStockAlert] = []
 
 
 class LogEntry(BaseModel):
