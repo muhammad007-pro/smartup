@@ -10,10 +10,41 @@ from .database import engine, Base, IS_SQLITE
 from .routers import auth, users, stock, points, sales, admin
 
 
+SEED_USERS = [
+    {"full_name": "Bosh Admin",  "phone": "+998949974770", "password": "1234", "role": "admin"},
+    {"full_name": "Dilshod aka", "phone": "+998900000001", "password": "1234", "role": "agent"},
+    {"full_name": "Rahmonali",   "phone": "+998900000002", "password": "1234", "role": "seller"},
+]
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from sqlalchemy import select
+    from .database import AsyncSessionLocal
+    from .models import User, Stock
+    from .auth import hash_password
+    from .utils import OPERATORS
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    async with AsyncSessionLocal() as db:
+        for u in SEED_USERS:
+            exists = await db.execute(select(User).where(User.phone == u["phone"]))
+            if exists.scalar_one_or_none():
+                continue
+            user = User(
+                full_name=u["full_name"],
+                phone=u["phone"],
+                password_hash=hash_password(u["password"]),
+                role=u["role"],
+            )
+            db.add(user)
+            await db.flush()
+            for op in OPERATORS:
+                db.add(Stock(user_id=user.id, operator=op, qty=0))
+        await db.commit()
+
     yield
     await engine.dispose()
 
