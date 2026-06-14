@@ -19,13 +19,17 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
 from ..database import get_db
-from ..models import User, Stock, Point, PointStock, Sale
+from ..models import User, Stock, Point, PointStock, Sale, Notification
 from ..schemas import (
     PointCreate, PointUpdate, PointResponse, PointWithStock, StockEntry,
     PointDetailResponse, SaleDetailResponse,
 )
 from ..deps import get_current_user, require_role
 from ..utils import haversine_meters, write_log, GPS_LIMIT_METERS
+
+
+async def _notify(db, actor: User, notif_type: str, title: str, body: str, point_id: str | None = None):
+    db.add(Notification(type=notif_type, title=title, body=body, actor_id=actor.id, point_id=point_id))
 
 router = APIRouter(prefix="/points", tags=["points"])
 
@@ -140,6 +144,12 @@ async def create_point(
         db, agent.id, "point_open",
         f"Yangi tochka: '{body.name}' ({body.location}) | {summary}",
     )
+    await _notify(
+        db, agent, "point_open",
+        title=f"Yangi tochka ochildi",
+        body=f"{agent.full_name} '{body.name}' tochkasini ochdi ({body.location}). {summary}",
+        point_id=point.id,
+    )
 
     await db.commit()
     await db.refresh(point)
@@ -227,6 +237,13 @@ async def update_point(
         db, agent.id, "point_update",
         f"Tochka yangilandi: '{point.name}' | {summary}",
     )
+    if body.stock:
+        await _notify(
+            db, agent, "point_update",
+            title=f"Tochka yangilandi",
+            body=f"{agent.full_name} '{point.name}' tochkasiga SIM berdi. {summary}",
+            point_id=point_id,
+        )
 
     await db.commit()
     await db.refresh(point)

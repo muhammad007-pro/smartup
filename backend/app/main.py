@@ -7,7 +7,7 @@ Har bosqichda yangi router import qilinib qo'shiladi.
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from .database import engine, Base, IS_SQLITE
-from .routers import auth, users, stock, points, sales, admin, upload, analytics
+from .routers import auth, users, stock, points, sales, admin, upload, analytics, notifications
 
 
 SEED_USERS = [
@@ -64,6 +64,7 @@ app.include_router(sales.router)
 app.include_router(admin.router)
 app.include_router(upload.router)
 app.include_router(analytics.router)
+app.include_router(notifications.router)
 
 
 @app.get("/", tags=["health"])

@@ -4,15 +4,15 @@ Admin paneli — statistika va harakatlar tarixi.
 GET /dashboard — umumiy ko'rsatkichlar
 GET /logs      — harakatlar tarixi (oxirgi 100 ta)
 """
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, cast, Date
 
 from ..database import get_db
 from ..models import User, Stock, Point, Sale, ActivityLog
-from ..schemas import DashboardResponse, LogEntry
+from ..schemas import DashboardResponse, LogEntry, SalesByDayEntry
 from ..deps import require_role
 from ..utils import OPERATORS
 
@@ -24,13 +24,6 @@ async def dashboard(
     db: AsyncSession = Depends(get_db),
     _admin: User = Depends(require_role("admin")),
 ):
-    """
-    Admin uchun umumiy statistika:
-    - Jami hodimlar soni
-    - Jami tochkalar soni
-    - Jami sotuvlar va bugungi sotuvlar
-    - Barcha hodimlarning umumiy zaxirasi (operator bo'yicha)
-    """
     # Jami hodimlar (admin hisoblanmaydi)
     total_users = await db.scalar(
         select(func.count()).select_from(User).where(User.role != "admin")
@@ -54,8 +47,31 @@ async def dashboard(
         .group_by(Stock.operator)
     )
     raw = dict(op_result.all())
-    # Barcha operatorlar ko'rinsin (0 bo'lsa ham)
     stock_by_operator = {op: raw.get(op, 0) for op in OPERATORS}
+
+    # So'ngi 7 kun bo'yicha sotuv dinamikasi
+    seven_days_ago = today_start - timedelta(days=6)
+    day_res = await db.execute(
+        select(cast(Sale.created_at, Date), func.count(Sale.id))
+        .where(Sale.created_at >= seven_days_ago)
+        .group_by(cast(Sale.created_at, Date))
+        .order_by(cast(Sale.created_at, Date))
+    )
+    day_raw = {str(d): c for d, c in day_res.all()}
+    # Barcha 7 kunni to'ldirish (ma'lumot bo'lmasa 0)
+    sales_by_day = []
+    for i in range(7):
+        day = today_start - timedelta(days=6 - i)
+        key = day.strftime("%Y-%m-%d")
+        sales_by_day.append(SalesByDayEntry(date=key, count=day_raw.get(key, 0)))
+
+    # Operator bo'yicha sotuv soni (grafik uchun)
+    op_sales_res = await db.execute(
+        select(Sale.operator, func.count(Sale.id))
+        .group_by(Sale.operator)
+    )
+    op_sales_raw = dict(op_sales_res.all())
+    sales_by_operator = {op: op_sales_raw.get(op, 0) for op in OPERATORS}
 
     return DashboardResponse(
         total_users=total_users,
@@ -63,6 +79,8 @@ async def dashboard(
         total_sales=total_sales,
         sales_today=sales_today,
         stock_by_operator=stock_by_operator,
+        sales_by_day=sales_by_day,
+        sales_by_operator=sales_by_operator,
     )
 
 
@@ -72,10 +90,6 @@ async def activity_logs(
     db: AsyncSession = Depends(get_db),
     _admin: User = Depends(require_role("admin")),
 ):
-    """
-    Harakatlar tarixi — oxirgi (default 100, max 500) yozuv.
-    Har yozuvda foydalanuvchi ismi ham keladi.
-    """
     result = await db.execute(
         select(ActivityLog, User.full_name)
         .join(User, ActivityLog.user_id == User.id)

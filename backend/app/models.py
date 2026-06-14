@@ -147,3 +147,21 @@ class ActivityLog(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     user: Mapped["User"] = relationship(back_populates="logs")
+
+
+# ---------------------------------------------------------------------------
+# Admin bildirishnomalari
+# ---------------------------------------------------------------------------
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    type: Mapped[str] = mapped_column(String(30), nullable=False)   # point_open | point_update
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    is_read: Mapped[bool] = mapped_column(Boolean, default=False)
+    actor_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
+    point_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("points.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    actor: Mapped["User"] = relationship("User", foreign_keys=[actor_id])

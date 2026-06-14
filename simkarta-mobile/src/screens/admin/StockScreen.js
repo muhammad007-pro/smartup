@@ -7,6 +7,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import api from '../../api';
 import { useTheme } from '../../ThemeContext';
+import Toast from '../../components/Toast';
 
 const OPERATORS = [
   { key: 'beeline',  label: 'Beeline',  color: '#FFCC00', textColor: '#1a1a1a' },
@@ -27,6 +28,12 @@ export default function StockScreen() {
   const [saving, setSaving]     = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [qtys, setQtys]         = useState(EMPTY_QTY);
+  const [toast, setToast]       = useState({ visible: false, message: '', type: 'success' });
+
+  const showToast = (message, type = 'success') => {
+    setToast({ visible: true, message, type });
+    setTimeout(() => setToast(t => ({ ...t, visible: false })), 2800);
+  };
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -49,7 +56,7 @@ export default function StockScreen() {
     setModal(true);
   };
 
-  const handleIssueAll = async () => {
+  const handleIssueAll = () => {
     const entries = OPERATORS.filter(op => parseInt(qtys[op.key], 10) > 0)
       .map(op => ({ operator: op.key, qty: parseInt(qtys[op.key], 10) }));
 
@@ -58,6 +65,18 @@ export default function StockScreen() {
       return;
     }
 
+    const summary = entries.map(e => `${e.qty} ta ${e.operator}`).join(', ');
+    Alert.alert(
+      'Tasdiqlang',
+      `${selectedUser.full_name}ga ${summary} berilsinmi?`,
+      [
+        { text: 'Bekor', style: 'cancel' },
+        { text: 'Ha, berish', style: 'default', onPress: () => doIssue(entries) },
+      ]
+    );
+  };
+
+  const doIssue = async (entries) => {
     setSaving(true);
     const errors = [];
     let successCount = 0;
@@ -72,8 +91,8 @@ export default function StockScreen() {
       }
       setModal(false);
       if (errors.length === 0) {
-        const summary = entries.map(e => `${e.operator} ${e.qty}ta`).join(', ');
-        Alert.alert('Muvaffaqiyatli', `${selectedUser.full_name}ga berildi:\n${summary}`);
+        const summary = entries.map(e => `${e.qty} ta ${e.operator}`).join(', ');
+        showToast(`${selectedUser.full_name}ga ${summary} berildi`);
       } else {
         Alert.alert('Qisman muvaffaqiyat', `${successCount} ta berildi.\nXatolar:\n${errors.join('\n')}`);
       }
@@ -99,6 +118,8 @@ export default function StockScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
+      <Toast visible={toast.visible} message={toast.message} type={toast.type} />
+
       <LinearGradient colors={theme.headerGrad} style={styles.header}>
         <Text style={styles.headerTitle}>Ombor</Text>
         <Text style={styles.headerSub}>Simkarta berish</Text>

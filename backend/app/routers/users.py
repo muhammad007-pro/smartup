@@ -28,7 +28,7 @@ async def list_users(
     """Barcha hodimlar (admin ko'rinmaydi) — har birining zaxirasi bilan."""
     result = await db.execute(
         select(User)
-        .where(User.role != "admin")
+        .where(User.role != "admin", User.is_active == True)  # noqa: E712
         .options(selectinload(User.stock))
         .order_by(User.full_name)
     )
@@ -112,3 +112,21 @@ async def update_user(
     await db.commit()
     await db.refresh(user)
     return user
+
+
+@router.delete("/{user_id}", status_code=204)
+async def delete_user(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_role("admin")),
+):
+    """Hodimni o'chirish (faolsizlashtirish). Sotuv tarixi saqlanib qoladi."""
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="Foydalanuvchi topilmadi")
+    if user.role == "admin":
+        raise HTTPException(status_code=403, detail="Adminni o'chirib bo'lmaydi")
+
+    user.is_active = False
+    await db.commit()

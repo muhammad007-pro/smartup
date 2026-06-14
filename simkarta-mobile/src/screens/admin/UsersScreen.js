@@ -5,8 +5,10 @@ import {
   RefreshControl, KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import api from '../../api';
 import { useTheme } from '../../ThemeContext';
+import Toast from '../../components/Toast';
 
 const ROLES = [
   { key: 'agent',  label: 'Agent' },
@@ -20,8 +22,6 @@ const OP_COLOR = {
   uzmobile: '#0066CC', mobiuz: '#E32119', oq: '#1a1a1a',
 };
 
-const ROLE_COLOR = { agent: null, seller: '#8B2FC9' };
-
 export default function UsersScreen() {
   const { theme, isDark } = useTheme();
   const [users, setUsers]       = useState([]);
@@ -30,6 +30,12 @@ export default function UsersScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [saving, setSaving]     = useState(false);
   const [form, setForm] = useState({ full_name: '', phone: '', password: '', role: 'agent' });
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
+
+  const showToast = (message, type = 'success') => {
+    setToast({ visible: true, message, type });
+    setTimeout(() => setToast(t => ({ ...t, visible: false })), 2800);
+  };
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -54,7 +60,7 @@ export default function UsersScreen() {
 
   const handleCreate = async () => {
     if (!form.full_name.trim() || !form.phone.trim() || !form.password.trim()) {
-      Alert.alert('Xato', 'Barcha maydonlarni to\'ldiring');
+      Alert.alert('Xato', "Barcha maydonlarni to'ldiring");
       return;
     }
     setSaving(true);
@@ -62,11 +68,34 @@ export default function UsersScreen() {
       await api.post('/users', form);
       setModalVisible(false);
       fetchUsers();
+      showToast(`${form.full_name} muvaffaqiyatli qo'shildi`);
     } catch (e) {
-      Alert.alert('Xato', e.response?.data?.detail || 'Xodim qo\'shib bo\'lmadi');
+      Alert.alert('Xato', e.response?.data?.detail || "Xodim qo'shib bo'lmadi");
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleDelete = (user) => {
+    Alert.alert(
+      "O'chirish",
+      `${user.full_name} o'chirilsinmi? Bu amalni bekor qilib bo'lmaydi.`,
+      [
+        { text: 'Bekor', style: 'cancel' },
+        {
+          text: "O'chirish", style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.delete(`/users/${user.id}`);
+              showToast(`${user.full_name} o'chirildi`);
+              fetchUsers();
+            } catch (e) {
+              showToast(e.response?.data?.detail || "O'chirib bo'lmadi", 'error');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const totalStock = (stock) => stock.reduce((s, i) => s + i.qty, 0);
@@ -85,6 +114,8 @@ export default function UsersScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
+      <Toast visible={toast.visible} message={toast.message} type={toast.type} />
+
       <LinearGradient colors={theme.headerGrad} style={styles.header}>
         <Text style={styles.headerTitle}>Xodimlar</Text>
         <TouchableOpacity activeOpacity={0.75} style={styles.addBtn} onPress={openModal}>
@@ -121,6 +152,13 @@ export default function UsersScreen() {
                     {item.role === 'agent' ? 'Agent' : 'Sotuvchi'}
                   </Text>
                 </View>
+                <TouchableOpacity
+                  style={[styles.deleteBtn, { backgroundColor: '#fef2f2' }]}
+                  onPress={() => handleDelete(item)}
+                  activeOpacity={0.75}
+                >
+                  <Ionicons name="trash-outline" size={16} color="#dc2626" />
+                </TouchableOpacity>
               </View>
 
               <View style={[styles.stockDivider, { backgroundColor: theme.border }]} />
@@ -147,73 +185,75 @@ export default function UsersScreen() {
             <View style={[styles.modalHandle, { backgroundColor: theme.border }]} />
             <Text style={[styles.modalTitle, { color: theme.text }]}>Yangi xodim</Text>
 
-            <TextInput
-              style={[styles.input, { color: theme.text, backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}
-              placeholder="To'liq ism (masalan: Akmal Karimov)"
-              placeholderTextColor={theme.textMuted}
-              value={form.full_name}
-              onChangeText={v => setForm(f => ({ ...f, full_name: v }))}
-            />
-            <TextInput
-              style={[styles.input, { color: theme.text, backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}
-              placeholder="+998 90 123 45 67"
-              placeholderTextColor={theme.textMuted}
-              value={form.phone}
-              onChangeText={v => setForm(f => ({ ...f, phone: v }))}
-              keyboardType="phone-pad"
-            />
-            <TextInput
-              style={[styles.input, { color: theme.text, backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}
-              placeholder="Parol (kamida 4 ta belgi)"
-              placeholderTextColor={theme.textMuted}
-              value={form.password}
-              onChangeText={v => setForm(f => ({ ...f, password: v }))}
-              secureTextEntry
-            />
+            <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+              <TextInput
+                style={[styles.input, { color: theme.text, backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}
+                placeholder="To'liq ism (masalan: Akmal Karimov)"
+                placeholderTextColor={theme.textMuted}
+                value={form.full_name}
+                onChangeText={v => setForm(f => ({ ...f, full_name: v }))}
+              />
+              <TextInput
+                style={[styles.input, { color: theme.text, backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}
+                placeholder="+998 90 123 45 67"
+                placeholderTextColor={theme.textMuted}
+                value={form.phone}
+                onChangeText={v => setForm(f => ({ ...f, phone: v }))}
+                keyboardType="phone-pad"
+              />
+              <TextInput
+                style={[styles.input, { color: theme.text, backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}
+                placeholder="Parol (kamida 4 ta belgi)"
+                placeholderTextColor={theme.textMuted}
+                value={form.password}
+                onChangeText={v => setForm(f => ({ ...f, password: v }))}
+                secureTextEntry
+              />
 
-            <Text style={[styles.roleLabel, { color: theme.textSub }]}>Lavozim</Text>
-            <View style={styles.roleRow}>
-              {ROLES.map(r => {
-                const active = form.role === r.key;
-                const rColor = r.key === 'agent' ? theme.primary : '#8B2FC9';
-                return (
-                  <TouchableOpacity
-                    key={r.key}
-                    activeOpacity={0.75}
-                    style={[
-                      styles.roleOption,
-                      { borderColor: active ? rColor : theme.border, backgroundColor: active ? rColor + '18' : theme.surfaceAlt },
-                    ]}
-                    onPress={() => setForm(f => ({ ...f, role: r.key }))}
-                  >
-                    <Text style={[styles.roleOptionText, { color: active ? rColor : theme.textSub }]}>
-                      {r.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+              <Text style={[styles.roleLabel, { color: theme.textSub }]}>Lavozim</Text>
+              <View style={styles.roleRow}>
+                {ROLES.map(r => {
+                  const active = form.role === r.key;
+                  const rColor = r.key === 'agent' ? theme.primary : '#8B2FC9';
+                  return (
+                    <TouchableOpacity
+                      key={r.key}
+                      activeOpacity={0.75}
+                      style={[
+                        styles.roleOption,
+                        { borderColor: active ? rColor : theme.border, backgroundColor: active ? rColor + '18' : theme.surfaceAlt },
+                      ]}
+                      onPress={() => setForm(f => ({ ...f, role: r.key }))}
+                    >
+                      <Text style={[styles.roleOptionText, { color: active ? rColor : theme.textSub }]}>
+                        {r.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
 
-            <View style={styles.modalBtns}>
-              <TouchableOpacity
-                activeOpacity={0.75}
-                style={[styles.cancelBtn, { borderColor: theme.border, backgroundColor: theme.surfaceAlt }]}
-                onPress={() => setModalVisible(false)}
-              >
-                <Text style={[styles.cancelBtnText, { color: theme.textSub }]}>Bekor</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                activeOpacity={0.75}
-                style={[styles.saveBtn, { backgroundColor: theme.primary }]}
-                onPress={handleCreate}
-                disabled={saving}
-              >
-                {saving
-                  ? <ActivityIndicator color="#fff" />
-                  : <Text style={styles.saveBtnText}>Saqlash</Text>
-                }
-              </TouchableOpacity>
-            </View>
+              <View style={styles.modalBtns}>
+                <TouchableOpacity
+                  activeOpacity={0.75}
+                  style={[styles.cancelBtn, { borderColor: theme.border, backgroundColor: theme.surfaceAlt }]}
+                  onPress={() => setModalVisible(false)}
+                >
+                  <Text style={[styles.cancelBtnText, { color: theme.textSub }]}>Bekor</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  activeOpacity={0.75}
+                  style={[styles.saveBtn, { backgroundColor: theme.primary }]}
+                  onPress={handleCreate}
+                  disabled={saving}
+                >
+                  {saving
+                    ? <ActivityIndicator color="#fff" />
+                    : <Text style={styles.saveBtnText}>Saqlash</Text>
+                  }
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -257,6 +297,7 @@ const styles = StyleSheet.create({
   cardPhone:  { fontSize: 13, marginTop: 2 },
   roleBadge:  { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
   roleText:   { fontSize: 12, fontWeight: '700' },
+  deleteBtn:  { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
 
   stockDivider: { height: 1, marginVertical: 12 },
   stockRow:     { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
@@ -277,7 +318,7 @@ const styles = StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalBox: {
     borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    padding: 24, paddingBottom: 40,
+    padding: 24, paddingBottom: 40, maxHeight: '85%',
   },
   modalHandle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
   modalTitle:  { fontSize: 20, fontWeight: '700', marginBottom: 20 },

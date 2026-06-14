@@ -220,12 +220,19 @@ class SaleResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # Admin
 # ---------------------------------------------------------------------------
+class SalesByDayEntry(BaseModel):
+    date: str   # "YYYY-MM-DD"
+    count: int
+
+
 class DashboardResponse(BaseModel):
     total_users: int
     total_points: int
     total_sales: int
     sales_today: int
     stock_by_operator: dict[str, int]
+    sales_by_day: list[SalesByDayEntry] = []
+    sales_by_operator: dict[str, int] = {}
 
 
 class LogEntry(BaseModel):
@@ -234,4 +241,19 @@ class LogEntry(BaseModel):
     user_name: str
     type: str
     text: str
+    created_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# Bildirishnoma
+# ---------------------------------------------------------------------------
+class NotificationResponse(BaseModel):
+    id: str
+    type: str
+    title: str
+    body: str
+    is_read: bool
+    actor_id: str
+    actor_name: str | None = None
+    point_id: str | None
     created_at: datetime
