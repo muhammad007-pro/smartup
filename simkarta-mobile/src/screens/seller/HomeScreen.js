@@ -1,16 +1,218 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View, Text, StyleSheet, ScrollView,
+  RefreshControl, ActivityIndicator,
+} from 'react-native';
+import api from '../../api';
+import { getUser } from '../../auth';
 import { colors } from '../../theme';
 
+const OPERATORS = [
+  { key: 'beeline',  label: 'Beeline',  color: '#FFCC00', textColor: '#1a1a1a' },
+  { key: 'ucell',    label: 'Ucell',    color: '#8B2FC9', textColor: '#ffffff' },
+  { key: 'uzmobile', label: 'Uzmobile', color: '#0066CC', textColor: '#ffffff' },
+  { key: 'mobiuz',   label: 'Mobiuz',   color: '#E32119', textColor: '#ffffff' },
+  { key: 'oq',       label: 'OQ',       color: '#1a1a1a', textColor: '#ffffff' },
+];
+
+const OP_MAP = Object.fromEntries(OPERATORS.map(o => [o.key, o]));
+
+function todayCount(sales) {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  return sales.filter(s => s.created_at.slice(0, 10) === todayStr).length;
+}
+
+function formatTime(iso) {
+  const d = new Date(iso);
+  return d.toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' });
+}
+function formatDate(iso) {
+  const d = new Date(iso);
+  const today = new Date().toISOString().slice(0, 10);
+  if (iso.slice(0, 10) === today) return 'Bugun';
+  return d.toLocaleDateString('uz-UZ', { day: 'numeric', month: 'short' });
+}
+
 export default function SellerHome() {
+  const [stock, setStock]     = useState([]);
+  const [sales, setSales]     = useState([]);
+  const [user, setUser]       = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchData = useCallback(async () => {
+    try {
+      const [stockRes, salesRes, u] = await Promise.all([
+        api.get('/stock/me'),
+        api.get('/sales/me'),
+        getUser(),
+      ]);
+      setStock(stockRes.data.items || []);
+      setSales(salesRes.data || []);
+      setUser(u);
+    } catch {
+      // tarmoq xatosi
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+  const onRefresh = () => { setRefreshing(true); fetchData(); };
+
+  const totalQty  = stock.reduce((s, i) => s + i.qty, 0);
+  const stockMap  = Object.fromEntries(stock.map(s => [s.operator, s.qty]));
+  const todaySales = todayCount(sales);
+
+  if (loading) {
+    return <View style={styles.center}><ActivityIndicator size="large" color={colors.primary} /></View>;
+  }
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.text}>Sotuvchi — Bosh sahifa</Text>
-    </View>
+    <ScrollView
+      style={styles.scroll}
+      contentContainerStyle={styles.content}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+    >
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Salom, {user?.full_name?.split(' ')[0]}!</Text>
+        <Text style={styles.headerSub}>Sotuvchi hisobingiz</Text>
+        <View style={styles.statsRow}>
+          <View style={styles.statBox}>
+            <Text style={styles.statNum}>{totalQty}</Text>
+            <Text style={styles.statLabel}>Qo'limdagi</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statBox}>
+            <Text style={styles.statNum}>{todaySales}</Text>
+            <Text style={styles.statLabel}>Bugun sotilgan</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statBox}>
+            <Text style={styles.statNum}>{sales.length}</Text>
+            <Text style={styles.statLabel}>Jami sotuvlar</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Shaxsiy zaxira */}
+      <Text style={styles.sectionTitle}>Shaxsiy zaxira</Text>
+      <View style={styles.stockCard}>
+        {OPERATORS.map((op, i) => {
+          const qty = stockMap[op.key] ?? 0;
+          return (
+            <View key={op.key} style={[styles.opRow, i < OPERATORS.length - 1 && styles.opBorder]}>
+              <View style={[styles.opBadge, { backgroundColor: op.color }]}>
+                <Text style={[styles.opLabel, { color: op.textColor }]}>{op.label}</Text>
+              </View>
+              <View style={styles.barWrap}>
+                <View style={[
+                  styles.barFill,
+                  { width: qty > 0 ? `${Math.min((qty / Math.max(totalQty, 1)) * 100, 100)}%` : '1%', backgroundColor: op.color },
+                ]} />
+              </View>
+              <Text style={[styles.opQty, qty === 0 && { color: colors.border }]}>{qty} ta</Text>
+            </View>
+          );
+        })}
+      </View>
+
+      {/* So'nggi sotuvlar */}
+      {sales.length > 0 && (
+        <>
+          <Text style={styles.sectionTitle}>So'nggi sotuvlar</Text>
+          <View style={styles.salesCard}>
+            {sales.slice(0, 20).map((sale, i) => {
+              const op = OP_MAP[sale.operator];
+              return (
+                <View key={sale.id} style={[styles.saleRow, i < Math.min(sales.length, 20) - 1 && styles.saleBorder]}>
+                  <View style={[styles.saleOpDot, { backgroundColor: op?.color || '#ccc' }]} />
+                  <View style={styles.saleInfo}>
+                    <Text style={styles.saleOp}>{op?.label || sale.operator}</Text>
+                    <Text style={styles.saleSource}>{sale.source === 'office' ? 'Ofis' : 'Tochka'}</Text>
+                  </View>
+                  <View style={styles.saleTime}>
+                    <Text style={styles.saleDate}>{formatDate(sale.created_at)}</Text>
+                    <Text style={styles.saleHour}>{formatTime(sale.created_at)}</Text>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        </>
+      )}
+
+      {sales.length === 0 && (
+        <View style={styles.empty}>
+          <Text style={styles.emptyIcon}>📊</Text>
+          <Text style={styles.emptyText}>Hali sotuvlar yo'q</Text>
+          <Text style={styles.emptySub}>"Sotish" tabiga o'ting</Text>
+        </View>
+      )}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
-  text: { fontSize: 18, color: colors.text },
+  scroll:  { flex: 1, backgroundColor: colors.background },
+  content: { paddingBottom: 32 },
+  center:  { flex: 1, justifyContent: 'center', alignItems: 'center' },
+
+  header: {
+    backgroundColor: colors.primary,
+    paddingTop: 52, paddingBottom: 20, paddingHorizontal: 20,
+  },
+  headerTitle: { fontSize: 22, fontWeight: '700', color: '#fff' },
+  headerSub:   { fontSize: 13, color: 'rgba(255,255,255,0.75)', marginTop: 2, marginBottom: 14 },
+
+  statsRow: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 12, padding: 14,
+  },
+  statBox:     { flex: 1, alignItems: 'center' },
+  statNum:     { fontSize: 24, fontWeight: '800', color: '#fff' },
+  statLabel:   { fontSize: 11, color: 'rgba(255,255,255,0.8)', marginTop: 2, textAlign: 'center' },
+  statDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.25)', marginHorizontal: 8 },
+
+  sectionTitle: {
+    fontSize: 13, fontWeight: '600', color: colors.textSecondary,
+    textTransform: 'uppercase', letterSpacing: 0.8,
+    marginTop: 20, marginBottom: 10, marginHorizontal: 16,
+  },
+
+  stockCard: {
+    marginHorizontal: 16, backgroundColor: colors.white, borderRadius: 12,
+    overflow: 'hidden', elevation: 2,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4,
+  },
+  opRow:    { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 14 },
+  opBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
+  opBadge:  { borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4, minWidth: 72, alignItems: 'center' },
+  opLabel:  { fontSize: 12, fontWeight: '700' },
+  barWrap:  { flex: 1, height: 6, backgroundColor: colors.border, borderRadius: 3, marginHorizontal: 12, overflow: 'hidden' },
+  barFill:  { height: '100%', borderRadius: 3 },
+  opQty:    { fontSize: 14, fontWeight: '600', color: colors.text, minWidth: 44, textAlign: 'right' },
+
+  salesCard: {
+    marginHorizontal: 16, backgroundColor: colors.white, borderRadius: 12,
+    overflow: 'hidden', elevation: 2,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4,
+  },
+  saleRow:    { flexDirection: 'row', alignItems: 'center', paddingVertical: 11, paddingHorizontal: 14 },
+  saleBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
+  saleOpDot:  { width: 12, height: 12, borderRadius: 6 },
+  saleInfo:   { flex: 1, marginLeft: 12 },
+  saleOp:     { fontSize: 14, fontWeight: '600', color: colors.text },
+  saleSource: { fontSize: 12, color: colors.textSecondary, marginTop: 1 },
+  saleTime:   { alignItems: 'flex-end' },
+  saleDate:   { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
+  saleHour:   { fontSize: 11, color: colors.border, marginTop: 1 },
+
+  empty:     { alignItems: 'center', paddingTop: 40 },
+  emptyIcon: { fontSize: 40, marginBottom: 10 },
+  emptyText: { fontSize: 16, fontWeight: '600', color: colors.text },
+  emptySub:  { fontSize: 13, color: colors.textSecondary, marginTop: 4 },
 });

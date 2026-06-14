@@ -8,3 +8,4 @@ bcrypt>=4.0.1
 pydantic>=2.10.0
 python-dotenv>=1.0.0
 python-multipart>=0.0.19  # form-data uchun
+cloudinary>=1.40.0        # rasm saqlash
