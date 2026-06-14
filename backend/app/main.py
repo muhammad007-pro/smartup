@@ -10,8 +10,10 @@ from .database import engine, Base, IS_SQLITE
 from .routers import auth, users, stock, points, sales, admin, upload, analytics, notifications
 
 
+# Admin ma'lumotlari — har deploy'da sinxronlashtiriladi
+ADMIN = {"full_name": "Bosh Admin", "phone": "+998902301646", "password": "A1414"}
+
 SEED_USERS = [
-    {"full_name": "Bosh Admin",  "phone": "+998949974770", "password": "1234", "role": "admin"},
     {"full_name": "Dilshod aka", "phone": "+998900000001", "password": "1234", "role": "agent"},
     {"full_name": "Rahmonali",   "phone": "+998900000002", "password": "1234", "role": "seller"},
 ]
@@ -29,6 +31,25 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(Base.metadata.create_all)
 
     async with AsyncSessionLocal() as db:
+        # Admin: har doim telefon va parolni yangilab qo'yamiz
+        result = await db.execute(select(User).where(User.role == "admin"))
+        admin_user = result.scalar_one_or_none()
+        if admin_user:
+            admin_user.phone = ADMIN["phone"]
+            admin_user.password_hash = hash_password(ADMIN["password"])
+        else:
+            admin_user = User(
+                full_name=ADMIN["full_name"],
+                phone=ADMIN["phone"],
+                password_hash=hash_password(ADMIN["password"]),
+                role="admin",
+            )
+            db.add(admin_user)
+            await db.flush()
+            for op in OPERATORS:
+                db.add(Stock(user_id=admin_user.id, operator=op, qty=0))
+
+        # Demo xodimlar: faqat mavjud bo'lmasa yaratiladi
         for u in SEED_USERS:
             exists = await db.execute(select(User).where(User.phone == u["phone"]))
             if exists.scalar_one_or_none():
@@ -43,6 +64,7 @@ async def lifespan(app: FastAPI):
             await db.flush()
             for op in OPERATORS:
                 db.add(Stock(user_id=user.id, operator=op, qty=0))
+
         await db.commit()
 
     yield

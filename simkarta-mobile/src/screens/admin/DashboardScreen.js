@@ -16,6 +16,8 @@ import { useLogout } from '../../navigation/AppNavigator';
 
 const STAT_ACCENTS = ['#1b8a5a', '#0066CC', '#8B2FC9', '#E32119'];
 const W = Dimensions.get('window').width;
+// Explicit card width: screen − side padding (12×2) − one gap (10), divided by 2
+const CARD_W = Math.floor((W - 24 - 10) / 2);
 
 export default function AdminDashboard({ navigation }) {
   const { theme, isDark, toggleDark } = useTheme();
@@ -263,10 +265,15 @@ const styles = StyleSheet.create({
     letterSpacing: 1, marginTop: 20, marginBottom: 10, marginHorizontal: 16,
   },
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 12, gap: 10 },
-  statCard: { borderRadius: 14, padding: 16, width: '47%', borderTopWidth: 3, alignItems: 'center' },
+  statCard: {
+    borderRadius: 14, padding: 16,
+    width: CARD_W, minHeight: 136,
+    borderTopWidth: 3,
+    alignItems: 'center', justifyContent: 'center',
+  },
   statIconWrap: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-  statValue: { fontSize: 30, fontWeight: '800', lineHeight: 34 },
-  statLabel: { fontSize: 12, fontWeight: '500', marginTop: 4, textAlign: 'center' },
+  statValue: { fontSize: 32, fontWeight: '800', lineHeight: 36 },
+  statLabel: { fontSize: 13, fontWeight: '600', marginTop: 5, textAlign: 'center' },
 
   chartCard: { marginHorizontal: 16, borderRadius: 14, padding: 12, overflow: 'hidden' },
   chartEmpty: { height: 120, alignItems: 'center', justifyContent: 'center', gap: 8 },
