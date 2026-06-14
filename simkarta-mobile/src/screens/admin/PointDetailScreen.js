@@ -25,7 +25,7 @@ function formatDt(iso) {
 }
 
 export default function PointDetailScreen({ route, navigation }) {
-  const { pointId, pointName } = route.params;
+  const { pointId, pointName, readOnly = false } = route.params;
 
   const [detail, setDetail]     = useState(null);
   const [loading, setLoading]   = useState(true);
@@ -178,7 +178,7 @@ export default function PointDetailScreen({ route, navigation }) {
           );
         }}
         ListFooterComponent={() => (
-          !d.is_archived ? (
+          (!readOnly && !d.is_archived) ? (
             <TouchableOpacity style={styles.archiveBtn} onPress={handleArchive}>
               <Text style={styles.archiveBtnText}>🗂  Tochkani arxivlash</Text>
             </TouchableOpacity>

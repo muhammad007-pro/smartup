@@ -22,7 +22,7 @@ async def get_ratings(
     date_from: str | None = None,
     date_to: str | None = None,
     db: AsyncSession = Depends(get_db),
-    _admin: User = Depends(require_role("admin")),
+    _admin: User = Depends(require_role("admin", "seller")),
 ):
     """
     Sotuvchilar, agentlar va tochkalar reytingi.

@@ -177,6 +177,7 @@ class PointWithStock(BaseModel):
     id: str
     agent_id: str
     agent_name: str | None = None
+    agent_phone: str | None = None
     name: str
     location: str
     lat: float | None

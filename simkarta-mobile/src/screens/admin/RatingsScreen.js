@@ -39,7 +39,8 @@ function RankList({ title, icon, data, color }) {
   );
 }
 
-export default function RatingsScreen() {
+export default function RatingsScreen({ route }) {
+  const sellerMode = route?.params?.sellerMode ?? false;
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -84,24 +85,13 @@ export default function RatingsScreen() {
 
       <DateRangePicker value={filter} onChange={onFilterChange} />
 
-      <RankList
-        title="Sotuvchilar"
-        icon="👤"
-        data={data?.sellers}
-        color="#8B2FC9"
-      />
-      <RankList
-        title="Agentlar (tochkadan sotuvlar)"
-        icon="🏢"
-        data={data?.agents}
-        color={colors.primary}
-      />
-      <RankList
-        title="Tochkalar"
-        icon="📍"
-        data={data?.points}
-        color="#0066CC"
-      />
+      {!sellerMode && (
+        <>
+          <RankList title="Sotuvchilar" icon="👤" data={data?.sellers} color="#8B2FC9" />
+          <RankList title="Agentlar (tochkadan sotuvlar)" icon="🏢" data={data?.agents} color={colors.primary} />
+        </>
+      )}
+      <RankList title="Tochkalar reytingi" icon="📍" data={data?.points} color="#0066CC" />
     </ScrollView>
   );
 }

@@ -9,18 +9,18 @@ import { navigationRef } from './navigationRef';
 import { clearAuth } from '../auth';
 import { colors } from '../theme';
 
-import LoginScreen          from '../screens/LoginScreen';
-import AdminDashboard       from '../screens/admin/DashboardScreen';
-import UsersScreen          from '../screens/admin/UsersScreen';
-import StockScreen          from '../screens/admin/StockScreen';
-import LogsScreen           from '../screens/admin/LogsScreen';
-import AdminPointsScreen    from '../screens/admin/AdminPointsScreen';
-import PointDetailScreen    from '../screens/admin/PointDetailScreen';
-import RatingsScreen        from '../screens/admin/RatingsScreen';
-import AgentHome            from '../screens/agent/HomeScreen';
-import PointsScreen         from '../screens/agent/PointsScreen';
-import SellerHome           from '../screens/seller/HomeScreen';
-import SellScreen           from '../screens/seller/SellScreen';
+import LoginScreen       from '../screens/LoginScreen';
+import AdminDashboard    from '../screens/admin/DashboardScreen';
+import UsersScreen       from '../screens/admin/UsersScreen';
+import StockScreen       from '../screens/admin/StockScreen';
+import LogsScreen        from '../screens/admin/LogsScreen';
+import AdminPointsScreen from '../screens/admin/AdminPointsScreen';
+import PointDetailScreen from '../screens/admin/PointDetailScreen';
+import RatingsScreen     from '../screens/admin/RatingsScreen';
+import AgentHome         from '../screens/agent/HomeScreen';
+import PointsScreen      from '../screens/agent/PointsScreen';
+import SellerHome        from '../screens/seller/HomeScreen';
+import SellScreen        from '../screens/seller/SellScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab   = createBottomTabNavigator();
@@ -97,6 +97,18 @@ function SellerTabs({ navigation }) {
         options={{ title: 'Bosh sahifa', tabBarIcon: tabIcon('home-outline') }} />
       <Tab.Screen name="Sell" component={SellScreen}
         options={{ title: 'Sotish', tabBarIcon: tabIcon('card-outline') }} />
+      <Tab.Screen
+        name="SellerPoints"
+        component={AdminPointsScreen}
+        initialParams={{ readOnly: true }}
+        options={{ title: 'Tochkalar', tabBarIcon: tabIcon('location-outline') }}
+      />
+      <Tab.Screen
+        name="SellerRatings"
+        component={RatingsScreen}
+        initialParams={{ sellerMode: true }}
+        options={{ title: 'Reyting', tabBarIcon: tabIcon('trophy-outline') }}
+      />
     </Tab.Navigator>
   );
 }

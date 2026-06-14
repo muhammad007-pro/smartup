@@ -30,11 +30,12 @@ from ..utils import haversine_meters, write_log, GPS_LIMIT_METERS
 router = APIRouter(prefix="/points", tags=["points"])
 
 
-def _point_to_schema(p: Point, agent_name: str | None = None, total_sales: int = 0) -> PointWithStock:
+def _point_to_schema(p: Point, total_sales: int = 0) -> PointWithStock:
     return PointWithStock(
         id=p.id,
         agent_id=p.agent_id,
-        agent_name=agent_name or (p.agent.full_name if p.agent else None),
+        agent_name=p.agent.full_name if p.agent else None,
+        agent_phone=p.agent.phone if p.agent else None,
         name=p.name,
         location=p.location,
         lat=p.lat,
@@ -78,6 +79,9 @@ async def list_points(
         counts = {}
 
     return [_point_to_schema(p, total_sales=counts.get(p.id, 0)) for p in points]
+
+
+
 
 
 @router.post("", response_model=PointResponse, status_code=status.HTTP_201_CREATED)
@@ -235,9 +239,9 @@ async def point_detail(
     date_from: str | None = None,
     date_to: str | None = None,
     db: AsyncSession = Depends(get_db),
-    _user: User = Depends(require_role("admin")),
+    _user: User = Depends(require_role("admin", "seller")),
 ):
-    """Tochka batafsil ma'lumoti + sotuv tarixi (admin uchun)."""
+    """Tochka batafsil ma'lumoti + sotuv tarixi (admin va seller uchun)."""
     from datetime import timedelta, timezone as tz
 
     result = await db.execute(
