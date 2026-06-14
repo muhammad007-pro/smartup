@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity,
+  View, Text, TextInput, TouchableOpacity, ScrollView,
   StyleSheet, ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import api from '../api';
@@ -38,15 +38,20 @@ export default function LoginScreen({ navigation }) {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
       <View style={styles.card}>
         <Text style={styles.title}>SimKarta</Text>
         <Text style={styles.subtitle}>Tizimga kirish</Text>
 
         <TextInput
           style={styles.input}
-          placeholder="Telefon raqam"
+          placeholder="+998 90 123 45 67"
           placeholderTextColor={colors.textSecondary}
           keyboardType="phone-pad"
           value={phone}
@@ -73,6 +78,7 @@ export default function LoginScreen({ navigation }) {
           }
         </TouchableOpacity>
       </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -81,6 +87,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.primary,
+  },
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
     padding: 24,
   },

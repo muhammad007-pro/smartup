@@ -123,26 +123,29 @@ export default function UsersScreen() {
 
       {/* Xodim qo'shish modali */}
       <Modal visible={modalVisible} animationType="slide" transparent>
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>Yangi xodim</Text>
 
             <TextInput
               style={styles.input}
-              placeholder="Ism familiya"
+              placeholder="To'liq ism (masalan: Akmal Karimov)"
+              placeholderTextColor={colors.textSecondary}
               value={form.full_name}
               onChangeText={v => setForm(f => ({ ...f, full_name: v }))}
             />
             <TextInput
               style={styles.input}
-              placeholder="Telefon (+998...)"
+              placeholder="+998 90 123 45 67"
+              placeholderTextColor={colors.textSecondary}
               value={form.phone}
               onChangeText={v => setForm(f => ({ ...f, phone: v }))}
               keyboardType="phone-pad"
             />
             <TextInput
               style={styles.input}
-              placeholder="Parol"
+              placeholder="Parol (kamida 4 ta belgi)"
+              placeholderTextColor={colors.textSecondary}
               value={form.password}
               onChangeText={v => setForm(f => ({ ...f, password: v }))}
               secureTextEntry
@@ -198,7 +201,7 @@ const styles = StyleSheet.create({
   addBtn:      { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 7 },
   addBtnText:  { color: '#fff', fontWeight: '600', fontSize: 14 },
 
-  list: { padding: 12, gap: 10 },
+  list: { padding: 12, gap: 10, paddingBottom: 90 },
 
   card: {
     backgroundColor: colors.white,

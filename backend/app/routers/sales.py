@@ -10,13 +10,16 @@ MUHIM (REJA 1.md 3.3):
 - Offisda sotishda seller.stock dan ayiriladi
 - Yetarli simkarta yo'q bo'lsa → 400
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import datetime, timezone, timedelta
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from ..database import get_db
 from ..models import User, Stock, Point, PointStock, Sale
-from ..schemas import SalePointRequest, SaleOfficeRequest, SaleResponse
+from ..schemas import SalePointRequest, SaleOfficeRequest, SaleResponse, SaleDetailResponse
 from ..deps import get_current_user, require_role
 from ..utils import OPERATORS, write_log
 
@@ -124,15 +127,50 @@ async def sell_from_office(
 
 @router.get("/me", response_model=list[SaleResponse])
 async def my_sales(
-    limit: int = 50,
+    limit: int = Query(default=200, le=500),
+    date_from: str | None = None,
+    date_to: str | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """O'zim amalga oshirgan oxirgi sotuvlar (default: 50 ta)."""
-    result = await db.execute(
-        select(Sale)
-        .where(Sale.seller_id == current_user.id)
-        .order_by(Sale.created_at.desc())
-        .limit(limit)
-    )
+    """O'zim amalga oshirgan sotuvlar. Sana filtri: date_from/date_to (YYYY-MM-DD)."""
+    q = select(Sale).where(Sale.seller_id == current_user.id)
+    if date_from:
+        q = q.where(Sale.created_at >= datetime.fromisoformat(date_from).replace(tzinfo=timezone.utc))
+    if date_to:
+        q = q.where(Sale.created_at < datetime.fromisoformat(date_to).replace(tzinfo=timezone.utc) + timedelta(days=1))
+    q = q.order_by(Sale.created_at.desc()).limit(limit)
+    result = await db.execute(q)
     return result.scalars().all()
+
+
+@router.get("", response_model=list[SaleDetailResponse])
+async def all_sales(
+    limit: int = Query(default=500, le=2000),
+    date_from: str | None = None,
+    date_to: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_role("admin")),
+):
+    """Barcha sotuvlar (admin uchun), sana filtri bilan."""
+    q = (
+        select(Sale, User.full_name, Point.name)
+        .join(User, Sale.seller_id == User.id)
+        .outerjoin(Point, Sale.point_id == Point.id)
+    )
+    if date_from:
+        q = q.where(Sale.created_at >= datetime.fromisoformat(date_from).replace(tzinfo=timezone.utc))
+    if date_to:
+        q = q.where(Sale.created_at < datetime.fromisoformat(date_to).replace(tzinfo=timezone.utc) + timedelta(days=1))
+    q = q.order_by(Sale.created_at.desc()).limit(limit)
+
+    rows = (await db.execute(q)).all()
+    return [
+        SaleDetailResponse(
+            id=s.id, seller_id=s.seller_id, seller_name=seller_name,
+            operator=s.operator, source=s.source,
+            point_id=s.point_id, point_name=point_name,
+            created_at=s.created_at,
+        )
+        for s, seller_name, point_name in rows
+    ]

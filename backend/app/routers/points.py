@@ -15,13 +15,14 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
 from ..database import get_db
-from ..models import User, Stock, Point, PointStock
+from ..models import User, Stock, Point, PointStock, Sale
 from ..schemas import (
     PointCreate, PointUpdate, PointResponse, PointWithStock, StockEntry,
+    PointDetailResponse, SaleDetailResponse,
 )
 from ..deps import get_current_user, require_role
 from ..utils import haversine_meters, write_log, GPS_LIMIT_METERS
@@ -29,10 +30,11 @@ from ..utils import haversine_meters, write_log, GPS_LIMIT_METERS
 router = APIRouter(prefix="/points", tags=["points"])
 
 
-def _point_to_schema(p: Point) -> PointWithStock:
+def _point_to_schema(p: Point, agent_name: str | None = None, total_sales: int = 0) -> PointWithStock:
     return PointWithStock(
         id=p.id,
         agent_id=p.agent_id,
+        agent_name=agent_name or (p.agent.full_name if p.agent else None),
         name=p.name,
         location=p.location,
         lat=p.lat,
@@ -40,25 +42,42 @@ def _point_to_schema(p: Point) -> PointWithStock:
         photo_outside=p.photo_outside,
         photo_inside=p.photo_inside,
         photo_ad=p.photo_ad,
+        is_archived=p.is_archived,
         created_at=p.created_at,
         updated_at=p.updated_at,
         point_stock=[StockEntry(operator=ps.operator, qty=ps.qty) for ps in p.point_stock],
+        total_sales=total_sales,
     )
 
 
 @router.get("", response_model=list[PointWithStock])
 async def list_points(
+    include_archived: bool = False,
     db: AsyncSession = Depends(get_db),
     _user: User = Depends(get_current_user),
 ):
     """Barcha tochkalar (GPS koordinatalar va stock bilan). Hamma rol ko'ra oladi."""
-    result = await db.execute(
-        select(Point)
-        .options(selectinload(Point.point_stock))
-        .order_by(Point.created_at.desc())
-    )
+    q = select(Point).options(selectinload(Point.point_stock), selectinload(Point.agent))
+    if not include_archived:
+        q = q.where(Point.is_archived == False)  # noqa: E712
+    q = q.order_by(Point.created_at.desc())
+
+    result = await db.execute(q)
     points = result.scalars().all()
-    return [_point_to_schema(p) for p in points]
+
+    # Har tochkaning sotuv sonini bir so'rovda olamiz
+    if points:
+        ids = [p.id for p in points]
+        counts_res = await db.execute(
+            select(Sale.point_id, func.count(Sale.id))
+            .where(Sale.point_id.in_(ids))
+            .group_by(Sale.point_id)
+        )
+        counts = dict(counts_res.all())
+    else:
+        counts = {}
+
+    return [_point_to_schema(p, total_sales=counts.get(p.id, 0)) for p in points]
 
 
 @router.post("", response_model=PointResponse, status_code=status.HTTP_201_CREATED)
@@ -208,3 +227,79 @@ async def update_point(
     await db.commit()
     await db.refresh(point)
     return point
+
+
+@router.get("/{point_id}/detail", response_model=PointDetailResponse)
+async def point_detail(
+    point_id: str,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(require_role("admin")),
+):
+    """Tochka batafsil ma'lumoti + sotuv tarixi (admin uchun)."""
+    from datetime import timedelta, timezone as tz
+
+    result = await db.execute(
+        select(Point)
+        .options(selectinload(Point.point_stock), selectinload(Point.agent))
+        .where(Point.id == point_id)
+    )
+    point = result.scalar_one_or_none()
+    if not point:
+        raise HTTPException(status_code=404, detail="Tochka topilmadi")
+
+    sales_q = (
+        select(Sale, User.full_name)
+        .join(User, Sale.seller_id == User.id)
+        .where(Sale.point_id == point_id)
+    )
+    if date_from:
+        df = datetime.fromisoformat(date_from).replace(tzinfo=tz.utc)
+        sales_q = sales_q.where(Sale.created_at >= df)
+    if date_to:
+        dt = datetime.fromisoformat(date_to).replace(tzinfo=tz.utc) + timedelta(days=1)
+        sales_q = sales_q.where(Sale.created_at < dt)
+
+    sales_res = await db.execute(sales_q.order_by(Sale.created_at.desc()))
+    sales_rows = sales_res.all()
+
+    sales_out = [
+        SaleDetailResponse(
+            id=s.id, seller_id=s.seller_id, seller_name=name,
+            operator=s.operator, source=s.source,
+            point_id=s.point_id, point_name=point.name,
+            created_at=s.created_at,
+        )
+        for s, name in sales_rows
+    ]
+
+    return PointDetailResponse(
+        id=point.id, agent_id=point.agent_id,
+        agent_name=point.agent.full_name if point.agent else None,
+        name=point.name, location=point.location,
+        lat=point.lat, lng=point.lng,
+        is_archived=point.is_archived,
+        point_stock=[StockEntry(operator=ps.operator, qty=ps.qty) for ps in point.point_stock],
+        sales=sales_out, total_sales=len(sales_out),
+    )
+
+
+@router.delete("/{point_id}", status_code=204)
+async def archive_point(
+    point_id: str,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role("admin")),
+):
+    """Tochkani arxivlash (soft delete). Sotuv tarixi saqlanib qoladi."""
+    result = await db.execute(select(Point).where(Point.id == point_id))
+    point = result.scalar_one_or_none()
+    if not point:
+        raise HTTPException(status_code=404, detail="Tochka topilmadi")
+
+    point.is_archived = True
+    await write_log(
+        db, admin.id, "point_archive",
+        f"Tochka arxivlandi: '{point.name}' ({point.location})",
+    )
+    await db.commit()

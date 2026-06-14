@@ -1,11 +1,13 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
   RefreshControl, ActivityIndicator,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import api from '../../api';
 import { getUser } from '../../auth';
 import { colors } from '../../theme';
+import DateRangePicker from '../../components/DateRangePicker';
 
 const OPERATORS = [
   { key: 'beeline',  label: 'Beeline',  color: '#FFCC00', textColor: '#1a1a1a' },
@@ -39,12 +41,17 @@ export default function SellerHome() {
   const [user, setUser]       = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [filter, setFilter]   = useState({ preset: 'all', dateFrom: null, dateTo: null });
 
   const fetchData = useCallback(async () => {
     try {
+      const params = new URLSearchParams();
+      if (filter.dateFrom) params.append('date_from', filter.dateFrom);
+      if (filter.dateTo)   params.append('date_to',   filter.dateTo);
+
       const [stockRes, salesRes, u] = await Promise.all([
         api.get('/stock/me'),
-        api.get('/sales/me'),
+        api.get(`/sales/me?${params.toString()}`),
         getUser(),
       ]);
       setStock(stockRes.data.items || []);
@@ -56,9 +63,9 @@ export default function SellerHome() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [filter]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useFocusEffect(useCallback(() => { fetchData(); }, [fetchData]));
   const onRefresh = () => { setRefreshing(true); fetchData(); };
 
   const totalQty  = stock.reduce((s, i) => s + i.qty, 0);
@@ -119,10 +126,15 @@ export default function SellerHome() {
         })}
       </View>
 
-      {/* So'nggi sotuvlar */}
+      {/* Sotuvlar sana filtri */}
+      <Text style={styles.sectionTitle}>Sotuvlar</Text>
+      <DateRangePicker
+        value={filter}
+        onChange={(f) => { setFilter(f); setLoading(true); }}
+      />
+
       {sales.length > 0 && (
         <>
-          <Text style={styles.sectionTitle}>So'nggi sotuvlar</Text>
           <View style={styles.salesCard}>
             {sales.slice(0, 20).map((sale, i) => {
               const op = OP_MAP[sale.operator];
@@ -147,8 +159,10 @@ export default function SellerHome() {
       {sales.length === 0 && (
         <View style={styles.empty}>
           <Text style={styles.emptyIcon}>📊</Text>
-          <Text style={styles.emptyText}>Hali sotuvlar yo'q</Text>
-          <Text style={styles.emptySub}>"Sotish" tabiga o'ting</Text>
+          <Text style={styles.emptyText}>
+            {filter.preset === 'all' ? 'Hali sotuvlar yo\'q' : 'Bu davrda sotuvlar yo\'q'}
+          </Text>
+          {filter.preset === 'all' && <Text style={styles.emptySub}>"Sotish" tabiga o'ting</Text>}
         </View>
       )}
     </ScrollView>
@@ -157,7 +171,7 @@ export default function SellerHome() {
 
 const styles = StyleSheet.create({
   scroll:  { flex: 1, backgroundColor: colors.background },
-  content: { paddingBottom: 32 },
+  content: { paddingBottom: 90 },
   center:  { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
   header: {

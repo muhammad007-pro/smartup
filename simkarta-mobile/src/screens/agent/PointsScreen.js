@@ -207,14 +207,16 @@ export default function PointsScreen() {
 
       {/* Yangi tochka modali */}
       <Modal visible={createModal} animationType="slide" transparent>
-        <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <View style={styles.modalBox}>
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               <Text style={styles.modalTitle}>Yangi tochka</Text>
 
-              <TextInput style={styles.input} placeholder="Tochka nomi"
+              <TextInput style={styles.input} placeholder="Tochka nomi (masalan: Yunusobod bozori)"
+                placeholderTextColor={colors.textSecondary}
                 value={form.name} onChangeText={v => setForm(f => ({ ...f, name: v }))} />
-              <TextInput style={styles.input} placeholder="Manzil (ko'cha, tuman...)"
+              <TextInput style={styles.input} placeholder="Manzil (ko'cha, tuman, shahar)"
+                placeholderTextColor={colors.textSecondary}
                 value={form.location} onChangeText={v => setForm(f => ({ ...f, location: v }))} />
 
               <TouchableOpacity style={styles.gpsBtn} onPress={getGps} disabled={gpsLoading}>
@@ -264,7 +266,7 @@ export default function PointsScreen() {
 
       {/* Simkarta qo'shish modali */}
       <Modal visible={addModal} animationType="slide" transparent>
-        <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>Simkarta qo'shish</Text>
             {addPoint && <Text style={styles.modalSub}>{addPoint.name}</Text>}
@@ -307,7 +309,7 @@ const styles = StyleSheet.create({
   addBtn:      { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 7 },
   addBtnText:  { color: '#fff', fontWeight: '600', fontSize: 14 },
 
-  list: { padding: 12, gap: 10 },
+  list: { padding: 12, gap: 10, paddingBottom: 90 },
 
   empty:      { alignItems: 'center', paddingTop: 80 },
   emptyIcon:  { fontSize: 48, marginBottom: 12 },

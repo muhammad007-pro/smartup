@@ -131,7 +131,7 @@ export default function StockScreen() {
       <Modal visible={modal} animationType="slide" transparent>
         <KeyboardAvoidingView
           style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>Simkarta berish</Text>
@@ -165,6 +165,7 @@ export default function StockScreen() {
             <TextInput
               style={styles.input}
               placeholder="Nechta? (masalan: 50)"
+              placeholderTextColor={colors.textSecondary}
               value={qty}
               onChangeText={setQty}
               keyboardType="number-pad"
@@ -214,7 +215,7 @@ const styles = StyleSheet.create({
   legendDot:   { width: 10, height: 10, borderRadius: 5 },
   legendLabel: { fontSize: 11, color: colors.textSecondary, fontWeight: '500' },
 
-  list: { padding: 12, gap: 10 },
+  list: { padding: 12, gap: 10, paddingBottom: 90 },
 
   card: {
     backgroundColor: colors.white,

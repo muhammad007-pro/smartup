@@ -126,16 +126,57 @@ class PointResponse(BaseModel):
     photo_outside: str | None
     photo_inside: str | None
     photo_ad: str | None
+    is_archived: bool = False
     created_at: datetime
     updated_at: datetime
 
     model_config = {"from_attributes": True}
 
 
+class SaleDetailResponse(BaseModel):
+    """Sotuv + sotuvchi ismi + tochka nomi (admin uchun)."""
+    id: str
+    seller_id: str
+    seller_name: str | None = None
+    operator: str
+    source: str
+    point_id: str | None
+    point_name: str | None = None
+    created_at: datetime
+
+
+class PointDetailResponse(BaseModel):
+    """Tochka + to'liq sotuv tarixi (admin uchun)."""
+    id: str
+    agent_id: str
+    agent_name: str | None = None
+    name: str
+    location: str
+    lat: float | None
+    lng: float | None
+    is_archived: bool
+    point_stock: list[StockEntry]
+    sales: list[SaleDetailResponse]
+    total_sales: int
+
+
+class RatingEntry(BaseModel):
+    id: str
+    name: str
+    count: int
+
+
+class RatingsResponse(BaseModel):
+    sellers: list[RatingEntry]
+    agents: list[RatingEntry]
+    points: list[RatingEntry]
+
+
 class PointWithStock(BaseModel):
     """GET /points — tochka + undagi simkarta qoldig'i."""
     id: str
     agent_id: str
+    agent_name: str | None = None
     name: str
     location: str
     lat: float | None
@@ -143,9 +184,11 @@ class PointWithStock(BaseModel):
     photo_outside: str | None
     photo_inside: str | None
     photo_ad: str | None
+    is_archived: bool = False
     created_at: datetime
     updated_at: datetime
     point_stock: list[StockEntry]
+    total_sales: int = 0
 
 
 # ---------------------------------------------------------------------------

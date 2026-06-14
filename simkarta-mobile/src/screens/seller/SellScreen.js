@@ -235,7 +235,7 @@ export default function SellScreen() {
 
 const styles = StyleSheet.create({
   scroll:  { flex: 1, backgroundColor: colors.background },
-  content: { paddingBottom: 40 },
+  content: { paddingBottom: 90 },
   center:  { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
   header: {

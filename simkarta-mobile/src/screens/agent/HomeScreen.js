@@ -142,7 +142,7 @@ export default function AgentHome() {
 
 const styles = StyleSheet.create({
   scroll:   { flex: 1, backgroundColor: colors.background },
-  content:  { paddingBottom: 32 },
+  content:  { paddingBottom: 90 },
   center:   { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
   header: {

@@ -9,15 +9,18 @@ import { navigationRef } from './navigationRef';
 import { clearAuth } from '../auth';
 import { colors } from '../theme';
 
-import LoginScreen       from '../screens/LoginScreen';
-import AdminDashboard    from '../screens/admin/DashboardScreen';
-import UsersScreen       from '../screens/admin/UsersScreen';
-import StockScreen       from '../screens/admin/StockScreen';
-import LogsScreen        from '../screens/admin/LogsScreen';
-import AgentHome         from '../screens/agent/HomeScreen';
-import PointsScreen      from '../screens/agent/PointsScreen';
-import SellerHome        from '../screens/seller/HomeScreen';
-import SellScreen        from '../screens/seller/SellScreen';
+import LoginScreen          from '../screens/LoginScreen';
+import AdminDashboard       from '../screens/admin/DashboardScreen';
+import UsersScreen          from '../screens/admin/UsersScreen';
+import StockScreen          from '../screens/admin/StockScreen';
+import LogsScreen           from '../screens/admin/LogsScreen';
+import AdminPointsScreen    from '../screens/admin/AdminPointsScreen';
+import PointDetailScreen    from '../screens/admin/PointDetailScreen';
+import RatingsScreen        from '../screens/admin/RatingsScreen';
+import AgentHome            from '../screens/agent/HomeScreen';
+import PointsScreen         from '../screens/agent/PointsScreen';
+import SellerHome           from '../screens/seller/HomeScreen';
+import SellScreen           from '../screens/seller/SellScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab   = createBottomTabNavigator();
@@ -64,6 +67,10 @@ function AdminTabs({ navigation }) {
         options={{ title: 'Xodimlar', tabBarIcon: tabIcon('people-outline') }} />
       <Tab.Screen name="Stock" component={StockScreen}
         options={{ title: 'Ombor', tabBarIcon: tabIcon('layers-outline') }} />
+      <Tab.Screen name="AdminPoints" component={AdminPointsScreen}
+        options={{ title: 'Tochkalar', tabBarIcon: tabIcon('location-outline') }} />
+      <Tab.Screen name="Ratings" component={RatingsScreen}
+        options={{ title: 'Reyting', tabBarIcon: tabIcon('trophy-outline') }} />
       <Tab.Screen name="Logs" component={LogsScreen}
         options={{ title: 'Tarix', tabBarIcon: tabIcon('list-outline') }} />
     </Tab.Navigator>
@@ -107,6 +114,16 @@ export default function AppNavigator() {
         <Stack.Screen name="AdminTabs"  component={AdminTabs} />
         <Stack.Screen name="AgentTabs"  component={AgentTabs} />
         <Stack.Screen name="SellerTabs" component={SellerTabs} />
+        <Stack.Screen
+          name="AdminPointDetail"
+          component={PointDetailScreen}
+          options={({ route }) => ({
+            headerShown: true,
+            title: route.params?.pointName || 'Tochka',
+            headerTintColor: colors.primary,
+            headerTitleStyle: { fontWeight: '700' },
+          })}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );

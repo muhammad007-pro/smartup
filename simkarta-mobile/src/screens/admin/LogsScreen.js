@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 22, fontWeight: '700', color: '#fff' },
   headerSub:   { fontSize: 13, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
 
-  list: { paddingVertical: 8, paddingHorizontal: 12 },
+  list: { paddingVertical: 8, paddingHorizontal: 12, paddingBottom: 90 },
 
   dateDivider: {
     flexDirection: 'row', alignItems: 'center', marginVertical: 10, gap: 8,
