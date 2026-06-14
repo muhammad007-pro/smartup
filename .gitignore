@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# Local database (faqat localda ishlatiladi, Railway PostgreSQL ishlatadi)
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment (maxfiy ma'lumotlar — hech qachon commit qilinmaydi)
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node (mobile uchun keyinchalik)
+node_modules/
+.expo/

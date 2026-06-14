@@ -1,0 +1,96 @@
+"""
+Admin paneli — statistika va harakatlar tarixi.
+
+GET /dashboard — umumiy ko'rsatkichlar
+GET /logs      — harakatlar tarixi (oxirgi 100 ta)
+"""
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func
+
+from ..database import get_db
+from ..models import User, Stock, Point, Sale, ActivityLog
+from ..schemas import DashboardResponse, LogEntry
+from ..deps import require_role
+from ..utils import OPERATORS
+
+router = APIRouter(tags=["admin"])
+
+
+@router.get("/dashboard", response_model=DashboardResponse)
+async def dashboard(
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_role("admin")),
+):
+    """
+    Admin uchun umumiy statistika:
+    - Jami hodimlar soni
+    - Jami tochkalar soni
+    - Jami sotuvlar va bugungi sotuvlar
+    - Barcha hodimlarning umumiy zaxirasi (operator bo'yicha)
+    """
+    # Jami hodimlar (admin hisoblanmaydi)
+    total_users = await db.scalar(
+        select(func.count()).select_from(User).where(User.role != "admin")
+    ) or 0
+
+    # Jami tochkalar
+    total_points = await db.scalar(select(func.count()).select_from(Point)) or 0
+
+    # Jami sotuvlar
+    total_sales = await db.scalar(select(func.count()).select_from(Sale)) or 0
+
+    # Bugungi sotuvlar (UTC kun boshidan)
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    sales_today = await db.scalar(
+        select(func.count()).select_from(Sale).where(Sale.created_at >= today_start)
+    ) or 0
+
+    # Har operator bo'yicha umumiy zaxira (hamma hodimlar qo'shib)
+    op_result = await db.execute(
+        select(Stock.operator, func.sum(Stock.qty))
+        .group_by(Stock.operator)
+    )
+    raw = dict(op_result.all())
+    # Barcha operatorlar ko'rinsin (0 bo'lsa ham)
+    stock_by_operator = {op: raw.get(op, 0) for op in OPERATORS}
+
+    return DashboardResponse(
+        total_users=total_users,
+        total_points=total_points,
+        total_sales=total_sales,
+        sales_today=sales_today,
+        stock_by_operator=stock_by_operator,
+    )
+
+
+@router.get("/logs", response_model=list[LogEntry])
+async def activity_logs(
+    limit: int = Query(default=100, le=500),
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_role("admin")),
+):
+    """
+    Harakatlar tarixi — oxirgi (default 100, max 500) yozuv.
+    Har yozuvda foydalanuvchi ismi ham keladi.
+    """
+    result = await db.execute(
+        select(ActivityLog, User.full_name)
+        .join(User, ActivityLog.user_id == User.id)
+        .order_by(ActivityLog.created_at.desc())
+        .limit(limit)
+    )
+    rows = result.all()
+    return [
+        LogEntry(
+            id=log.id,
+            user_id=log.user_id,
+            user_name=full_name,
+            type=log.type,
+            text=log.text,
+            created_at=log.created_at,
+        )
+        for log, full_name in rows
+    ]
