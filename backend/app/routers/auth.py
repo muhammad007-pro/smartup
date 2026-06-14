@@ -39,7 +39,10 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
         )
 
     token = create_access_token(user.id, user.role)
-    return TokenResponse(access_token=token)
+    return TokenResponse(
+        access_token=token,
+        user=UserResponse.model_validate(user),
+    )
 
 
 @router.get("/me", response_model=UserResponse, summary="O'z profilim")
