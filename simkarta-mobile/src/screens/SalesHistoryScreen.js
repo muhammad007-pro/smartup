@@ -4,8 +4,9 @@ import {
   ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
 import api from '../api';
-import { colors } from '../theme';
+import { useTheme } from '../ThemeContext';
 import DateRangePicker from '../components/DateRangePicker';
 
 const OP_COLOR = {
@@ -13,7 +14,7 @@ const OP_COLOR = {
   ucell:    '#8B2FC9',
   uzmobile: '#0066CC',
   mobiuz:   '#E32119',
-  oq:       '#1a1a1a',
+  oq:       '#2d2d2d',
 };
 const OP_TEXT = {
   beeline: '#1a1a1a',
@@ -44,6 +45,8 @@ function presetToRange(key) {
 }
 
 export default function SalesHistoryScreen({ navigation, route }) {
+  const { theme, isDark } = useTheme();
+
   const sellerMode    = route?.params?.sellerMode ?? false;
   const initialPreset = route?.params?.preset     ?? 'all';
 
@@ -65,7 +68,6 @@ export default function SalesHistoryScreen({ navigation, route }) {
       const res = await api.get(endpoint, { params });
       setSales(res.data || []);
     } catch {
-      // keep stale
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -91,11 +93,14 @@ export default function SalesHistoryScreen({ navigation, route }) {
   };
 
   const renderItem = ({ item }) => {
-    const bg  = OP_COLOR[item.operator] || '#999';
-    const tc  = OP_TEXT[item.operator]  || '#fff';
+    const bg = OP_COLOR[item.operator] || '#999';
+    const tc = OP_TEXT[item.operator]  || '#fff';
     return (
       <TouchableOpacity
-        style={styles.row}
+        style={[
+          styles.row,
+          { backgroundColor: theme.surface, borderBottomColor: theme.border },
+        ]}
         onPress={() => openPoint(item)}
         activeOpacity={item.point_id ? 0.7 : 1}
       >
@@ -104,34 +109,39 @@ export default function SalesHistoryScreen({ navigation, route }) {
         </View>
         <View style={styles.rowInfo}>
           {!sellerMode && item.seller_name && (
-            <Text style={styles.sellerName}>{item.seller_name}</Text>
+            <Text style={[styles.sellerName, { color: theme.text }]}>{item.seller_name}</Text>
           )}
-          <Text style={styles.pointName} numberOfLines={1}>
-            {item.point_name ? `📍 ${item.point_name}` : '🏢 Ofis'}
+          <Text style={[styles.pointName, { color: theme.textSub }]} numberOfLines={1}>
+            {item.point_name ? `📍 ${item.point_name}` : 'Ofis'}
           </Text>
-          <Text style={styles.rowDate}>{fmtDate(item.created_at)}</Text>
+          <Text style={[styles.rowDate, { color: theme.textMuted }]}>{fmtDate(item.created_at)}</Text>
         </View>
-        <View style={[styles.sourceBadge, item.source === 'point' ? styles.srcPoint : styles.srcOffice]}>
-          <Text style={styles.srcText}>{item.source === 'point' ? 'Tochka' : 'Ofis'}</Text>
+        <View style={[
+          styles.sourceBadge,
+          item.source === 'point'
+            ? { backgroundColor: isDark ? theme.surfaceAlt : '#e8f5ee' }
+            : { backgroundColor: isDark ? theme.surfaceAlt : '#f0f0f0' },
+        ]}>
+          <Text style={[styles.srcText, { color: theme.textSub }]}>{item.source === 'point' ? 'Tochka' : 'Ofis'}</Text>
         </View>
         {item.point_id && (
-          <Text style={styles.chevron}>›</Text>
+          <Text style={[styles.chevron, { color: theme.textSub }]}>›</Text>
         )}
       </TouchableOpacity>
     );
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
+    <View style={{ flex: 1, backgroundColor: theme.bg }}>
+      <LinearGradient colors={theme.headerGrad} style={styles.header}>
         <Text style={styles.headerTitle}>{sellerMode ? 'Sotuvlarim' : 'Barcha sotuvlar'}</Text>
-      </View>
+      </LinearGradient>
 
       <DateRangePicker value={dateFilter} onChange={setDateFilter} />
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator size="large" color={theme.primary} />
         </View>
       ) : (
         <FlatList
@@ -139,13 +149,14 @@ export default function SalesHistoryScreen({ navigation, route }) {
           keyExtractor={s => s.id}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
           ListHeaderComponent={
-            <Text style={styles.count}>{sales.length} ta sotuv</Text>
+            <Text style={[styles.count, { color: theme.textSub }]}>{sales.length} ta sotuv</Text>
           }
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Text style={styles.emptyText}>Sotuvlar yo'q</Text>
+              <Text style={styles.emptyIcon}>📦</Text>
+              <Text style={[styles.emptyText, { color: theme.textSub }]}>Sotuvlar yo'q</Text>
             </View>
           }
         />
@@ -155,47 +166,33 @@ export default function SalesHistoryScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  center:    { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
-  header: {
-    backgroundColor: colors.primary,
-    paddingTop: 52, paddingBottom: 16, paddingHorizontal: 20,
-  },
+  header: { paddingTop: 52, paddingBottom: 16, paddingHorizontal: 20 },
   headerTitle: { fontSize: 22, fontWeight: '700', color: '#fff' },
 
-  count: {
-    fontSize: 12, color: colors.textSecondary, fontWeight: '600',
-    paddingHorizontal: 16, paddingVertical: 6,
-  },
-  list: { paddingBottom: 90 },
+  count: { fontSize: 12, fontWeight: '600', paddingHorizontal: 16, paddingVertical: 6 },
+  list:  { paddingBottom: 90 },
 
   row: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: colors.white,
     paddingHorizontal: 14, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    borderBottomWidth: 1,
     gap: 10,
   },
-  opBadge: {
-    borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5,
-    minWidth: 68, alignItems: 'center',
-  },
-  opText:    { fontSize: 11, fontWeight: '700' },
-  rowInfo:   { flex: 1 },
-  sellerName:{ fontSize: 13, fontWeight: '600', color: colors.text },
-  pointName: { fontSize: 12, color: colors.textSecondary, marginTop: 1 },
-  rowDate:   { fontSize: 11, color: '#aaa', marginTop: 2 },
+  opBadge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5, minWidth: 68, alignItems: 'center' },
+  opText:  { fontSize: 11, fontWeight: '700' },
+  rowInfo: { flex: 1 },
+  sellerName: { fontSize: 13, fontWeight: '600' },
+  pointName:  { fontSize: 12, marginTop: 1 },
+  rowDate:    { fontSize: 11, marginTop: 2 },
 
-  sourceBadge: {
-    borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4,
-  },
-  srcPoint:  { backgroundColor: '#e8f5ee' },
-  srcOffice: { backgroundColor: '#f0f0f0' },
-  srcText:   { fontSize: 10, fontWeight: '600', color: colors.textSecondary },
+  sourceBadge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4 },
+  srcText:     { fontSize: 10, fontWeight: '600' },
 
-  chevron: { fontSize: 20, color: colors.textSecondary, marginLeft: 2 },
+  chevron: { fontSize: 20, marginLeft: 2 },
 
   empty:     { alignItems: 'center', paddingTop: 60 },
-  emptyText: { color: colors.textSecondary, fontSize: 16 },
+  emptyIcon: { fontSize: 40, marginBottom: 10 },
+  emptyText: { fontSize: 16 },
 });

@@ -3,25 +3,29 @@ import {
   View, Text, StyleSheet, FlatList,
   RefreshControl, ActivityIndicator,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import api from '../../api';
-import { colors } from '../../theme';
+import { useTheme } from '../../ThemeContext';
 
 const TYPE_META = {
-  point_open:   { icon: '📍', label: 'Tochka ochildi',   color: colors.primary },
+  point_open:   { icon: '📍', label: 'Tochka ochildi',    color: '#1b8a5a' },
   point_update: { icon: '🔄', label: 'Tochka yangilandi', color: '#0066CC' },
-  sale:         { icon: '💚', label: 'Sotuv',             color: '#2e7d32' },
-  issue:        { icon: '📦', label: 'Simkarta berildi',  color: '#8B2FC9' },
+  sale:         { icon: '💚', label: 'Sotuv',              color: '#2e7d32' },
+  issue:        { icon: '📦', label: 'Simkarta berildi',   color: '#8B2FC9' },
 };
 
 function formatDt(iso) {
   const d = new Date(iso);
   const today = new Date().toISOString().slice(0, 10);
-  const date  = iso.slice(0, 10) === today ? 'Bugun' : d.toLocaleDateString('uz-UZ', { day: 'numeric', month: 'short' });
+  const date  = iso.slice(0, 10) === today
+    ? 'Bugun'
+    : d.toLocaleDateString('uz-UZ', { day: 'numeric', month: 'short' });
   const time  = d.toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' });
   return { date, time };
 }
 
 export default function LogsScreen() {
+  const { theme, isDark } = useTheme();
   const [logs, setLogs]         = useState([]);
   const [loading, setLoading]   = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -31,7 +35,6 @@ export default function LogsScreen() {
       const res = await api.get('/logs?limit=200');
       setLogs(res.data || []);
     } catch {
-      // silent
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -42,28 +45,40 @@ export default function LogsScreen() {
   const onRefresh = () => { setRefreshing(true); fetchLogs(); };
 
   if (loading) {
-    return <View style={styles.center}><ActivityIndicator size="large" color={colors.primary} /></View>;
+    return (
+      <View style={[styles.center, { backgroundColor: theme.bg }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
+      </View>
+    );
   }
 
+  const rowShadow = isDark
+    ? { borderWidth: 1, borderColor: theme.border }
+    : theme.card;
+
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
+    <View style={[styles.container, { backgroundColor: theme.bg }]}>
+      <LinearGradient colors={theme.headerGrad} style={styles.header}>
         <Text style={styles.headerTitle}>Harakatlar tarixi</Text>
         <Text style={styles.headerSub}>{logs.length} ta yozuv</Text>
-      </View>
+      </LinearGradient>
 
       <FlatList
         data={logs}
         keyExtractor={l => l.id}
-        contentContainerStyle={styles.list}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        contentContainerStyle={[styles.list, logs.length === 0 && styles.listEmpty]}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
         ListEmptyComponent={
-          <View style={styles.empty}><Text style={styles.emptyText}>Harakatlar yo'q</Text></View>
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyIcon}>📋</Text>
+            <Text style={[styles.emptyTitle, { color: theme.text }]}>Harakatlar yo'q</Text>
+            <Text style={[styles.emptySub, { color: theme.textMuted }]}>Tizim faoliyati bu yerda ko'rinadi</Text>
+          </View>
         }
         renderItem={({ item, index }) => {
-          const meta = TYPE_META[item.type] || { icon: '📋', label: item.type, color: colors.textSecondary };
+          const meta = TYPE_META[item.type] || { icon: '📋', label: item.type, color: theme.textSub };
           const { date, time } = formatDt(item.created_at);
-          const isFirst = index === 0;
+          const isFirst  = index === 0;
           const prevDate = index > 0 ? logs[index - 1].created_at.slice(0, 10) : null;
           const showDate = isFirst || item.created_at.slice(0, 10) !== prevDate;
 
@@ -71,22 +86,26 @@ export default function LogsScreen() {
             <>
               {showDate && (
                 <View style={styles.dateDivider}>
-                  <View style={styles.dateLine} />
-                  <Text style={styles.dateText}>{date}</Text>
-                  <View style={styles.dateLine} />
+                  <View style={[styles.dateLine, { backgroundColor: theme.border }]} />
+                  <Text style={[styles.dateText, { color: theme.textSub, backgroundColor: theme.bg }]}>
+                    {date}
+                  </Text>
+                  <View style={[styles.dateLine, { backgroundColor: theme.border }]} />
                 </View>
               )}
-              <View style={styles.logRow}>
-                <View style={[styles.iconBox, { backgroundColor: meta.color + '18' }]}>
-                  <Text style={styles.icon}>{meta.icon}</Text>
+              <View style={[styles.logRow, { backgroundColor: theme.surface }, rowShadow]}>
+                <View style={[styles.iconBubble, { backgroundColor: meta.color + '1a' }]}>
+                  <Text style={styles.iconText}>{meta.icon}</Text>
                 </View>
                 <View style={styles.logInfo}>
-                  <View style={styles.logTop}>
+                  <View style={styles.logTopRow}>
                     <Text style={[styles.logType, { color: meta.color }]}>{meta.label}</Text>
-                    <Text style={styles.logTime}>{time}</Text>
+                    <Text style={[styles.logTime, { color: theme.textMuted }]}>{time}</Text>
                   </View>
-                  <Text style={styles.logUser}>{item.user_name}</Text>
-                  <Text style={styles.logText} numberOfLines={2}>{item.text}</Text>
+                  <Text style={[styles.logUser, { color: theme.text }]}>{item.user_name}</Text>
+                  <Text style={[styles.logText, { color: theme.textSub }]} numberOfLines={2}>
+                    {item.text}
+                  </Text>
                 </View>
               </View>
             </>
@@ -98,39 +117,47 @@ export default function LogsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1 },
   center:    { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
   header: {
-    backgroundColor: colors.primary,
-    paddingTop: 52, paddingBottom: 16, paddingHorizontal: 20,
+    paddingTop: 52, paddingBottom: 18, paddingHorizontal: 20,
   },
-  headerTitle: { fontSize: 22, fontWeight: '700', color: '#fff' },
-  headerSub:   { fontSize: 13, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
+  headerTitle: { fontSize: 24, fontWeight: '700', color: '#fff' },
+  headerSub:   { fontSize: 13, color: 'rgba(255,255,255,0.78)', marginTop: 3 },
 
-  list: { paddingVertical: 8, paddingHorizontal: 12, paddingBottom: 90 },
+  list:      { paddingVertical: 10, paddingHorizontal: 14, paddingBottom: 90 },
+  listEmpty: { flex: 1 },
 
   dateDivider: {
-    flexDirection: 'row', alignItems: 'center', marginVertical: 10, gap: 8,
+    flexDirection: 'row', alignItems: 'center',
+    marginVertical: 12, gap: 8,
   },
-  dateLine: { flex: 1, height: 1, backgroundColor: colors.border },
-  dateText: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
+  dateLine: { flex: 1, height: 1 },
+  dateText: {
+    fontSize: 12, fontWeight: '700',
+    paddingHorizontal: 8,
+  },
 
   logRow: {
-    flexDirection: 'row', backgroundColor: colors.white,
-    borderRadius: 10, padding: 12, marginBottom: 6,
-    elevation: 1, shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 2,
+    flexDirection: 'row',
+    borderRadius: 12, padding: 13, marginBottom: 6,
   },
-  iconBox:  { width: 38, height: 38, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: 10 },
-  icon:     { fontSize: 18 },
-  logInfo:  { flex: 1 },
-  logTop:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  logType:  { fontSize: 12, fontWeight: '700' },
-  logTime:  { fontSize: 11, color: colors.textSecondary },
-  logUser:  { fontSize: 13, fontWeight: '600', color: colors.text, marginTop: 1 },
-  logText:  { fontSize: 12, color: colors.textSecondary, marginTop: 2, lineHeight: 16 },
+  iconBubble: {
+    width: 42, height: 42, borderRadius: 12,
+    justifyContent: 'center', alignItems: 'center',
+    marginRight: 12,
+  },
+  iconText:   { fontSize: 20 },
+  logInfo:    { flex: 1 },
+  logTopRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 },
+  logType:    { fontSize: 12, fontWeight: '800' },
+  logTime:    { fontSize: 11 },
+  logUser:    { fontSize: 14, fontWeight: '700', marginBottom: 2 },
+  logText:    { fontSize: 12, lineHeight: 17 },
 
-  empty:     { alignItems: 'center', paddingTop: 60 },
-  emptyText: { color: colors.textSecondary, fontSize: 16 },
+  emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 80 },
+  emptyIcon:  { fontSize: 56, marginBottom: 16 },
+  emptyTitle: { fontSize: 18, fontWeight: '700', marginBottom: 8 },
+  emptySub:   { fontSize: 14, textAlign: 'center', paddingHorizontal: 40, lineHeight: 20 },
 });

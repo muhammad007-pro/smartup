@@ -5,18 +5,12 @@ import {
   KeyboardAvoidingView, Platform, TextInput, ScrollView,
 } from 'react-native';
 import * as Location from 'expo-location';
+import { LinearGradient } from 'expo-linear-gradient';
 import api, { uploadPhoto } from '../../api';
 import { getUser } from '../../auth';
-import { colors } from '../../theme';
+import { useTheme } from '../../ThemeContext';
+import { OPERATORS } from '../../theme';
 import PhotoPicker from '../../components/PhotoPicker';
-
-const OPERATORS = [
-  { key: 'beeline',  label: 'Beeline',  color: '#FFCC00', textColor: '#1a1a1a' },
-  { key: 'ucell',    label: 'Ucell',    color: '#8B2FC9', textColor: '#ffffff' },
-  { key: 'uzmobile', label: 'Uzmobile', color: '#0066CC', textColor: '#ffffff' },
-  { key: 'mobiuz',   label: 'Mobiuz',   color: '#E32119', textColor: '#ffffff' },
-  { key: 'oq',       label: 'OQ',       color: '#1a1a1a', textColor: '#ffffff' },
-];
 
 async function getCurrentLocation() {
   const { status } = await Location.requestForegroundPermissionsAsync();
@@ -32,16 +26,18 @@ const EMPTY_FORM = {
 };
 
 export default function PointsScreen() {
-  const [points, setPoints]       = useState([]);
-  const [myId, setMyId]           = useState(null);
-  const [loading, setLoading]     = useState(true);
+  const { theme, isDark } = useTheme();
+
+  const [points, setPoints]         = useState([]);
+  const [myId, setMyId]             = useState(null);
+  const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const [createModal, setCreateModal] = useState(false);
-  const [creating, setCreating]       = useState(false);
-  const [gpsLoading, setGpsLoading]   = useState(false);
-  const [uploadingPhoto, setUploadingPhoto] = useState(null); // 'outside'|'inside'|'ad'
-  const [form, setForm]               = useState(EMPTY_FORM);
+  const [createModal, setCreateModal]       = useState(false);
+  const [creating, setCreating]             = useState(false);
+  const [gpsLoading, setGpsLoading]         = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(null);
+  const [form, setForm]                     = useState(EMPTY_FORM);
 
   const [addModal, setAddModal]   = useState(false);
   const [addPoint, setAddPoint]   = useState(null);
@@ -83,7 +79,6 @@ export default function PointsScreen() {
       const url = await uploadPhoto(localUri);
       setForm(f => ({ ...f, photos: { ...f.photos, [key]: url } }));
     } catch {
-      // Cloudinary yo'q bo'lsa URI ni saqlab qo'yamiz — qolgan hamma narsa ishlaydi
     } finally {
       setUploadingPhoto(null);
     }
@@ -156,82 +151,107 @@ export default function PointsScreen() {
   const stockOf = (p, op) => (p.point_stock || []).find(s => s.operator === op)?.qty ?? 0;
 
   if (loading) {
-    return <View style={styles.center}><ActivityIndicator size="large" color={colors.primary} /></View>;
+    return (
+      <View style={[styles.center, { backgroundColor: theme.bg }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
+      </View>
+    );
   }
 
+  const cardStyle = [
+    styles.card,
+    { backgroundColor: theme.surface },
+    isDark && { borderWidth: 1, borderColor: theme.border },
+    theme.card,
+  ];
+
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
+    <View style={{ flex: 1, backgroundColor: theme.bg }}>
+      <LinearGradient colors={theme.headerGrad} style={styles.header}>
         <Text style={styles.headerTitle}>Tochkalar</Text>
         <TouchableOpacity style={styles.addBtn} onPress={() => { setForm(EMPTY_FORM); setCreateModal(true); }}>
           <Text style={styles.addBtnText}>+ Yangi</Text>
         </TouchableOpacity>
-      </View>
+      </LinearGradient>
 
       <FlatList
         data={points}
         keyExtractor={p => p.id}
         contentContainerStyle={styles.list}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyIcon}>📍</Text>
-            <Text style={styles.emptyTitle}>Tochkalar yo'q</Text>
-            <Text style={styles.emptySub}>"+ Yangi" tugmasini bosing</Text>
+            <Text style={[styles.emptyTitle, { color: theme.text }]}>Tochkalar yo'q</Text>
+            <Text style={[styles.emptySub, { color: theme.textSub }]}>"+ Yangi" tugmasini bosing</Text>
           </View>
         }
         renderItem={({ item }) => (
-          <View style={styles.card}>
+          <View style={cardStyle}>
             <View style={styles.cardTop}>
               <View style={styles.cardTitleRow}>
-                <Text style={styles.cardName}>{item.name}</Text>
+                <Text style={[styles.cardName, { color: theme.text }]}>{item.name}</Text>
                 <View style={styles.totalBadge}>
-                  <Text style={styles.totalNum}>{pointTotal(item)}</Text>
-                  <Text style={styles.totalLabel}> ta</Text>
+                  <Text style={[styles.totalNum, { color: theme.primary }]}>{pointTotal(item)}</Text>
+                  <Text style={[styles.totalLabel, { color: theme.textSub }]}> ta</Text>
                 </View>
               </View>
-              <Text style={styles.cardLocation}>📍 {item.location}</Text>
+              <Text style={[styles.cardLocation, { color: theme.textSub }]}>📍 {item.location}</Text>
             </View>
             <View style={styles.opGrid}>
               {OPERATORS.map(op => (
                 <View key={op.key} style={styles.opCell}>
                   <View style={[styles.opDot, { backgroundColor: op.color }]} />
-                  <Text style={styles.opName}>{op.label}</Text>
-                  <Text style={styles.opQty}>{stockOf(item, op.key)}</Text>
+                  <Text style={[styles.opName, { color: theme.textSub }]}>{op.label}</Text>
+                  <Text style={[styles.opQty, { color: theme.text }]}>{stockOf(item, op.key)}</Text>
                 </View>
               ))}
             </View>
-            <TouchableOpacity style={styles.stockBtn} onPress={() => openAddStock(item)}>
-              <Text style={styles.stockBtnText}>+ Simkarta qo'shish</Text>
+            <TouchableOpacity
+              style={[styles.stockBtn, { backgroundColor: theme.surfaceAlt }]}
+              onPress={() => openAddStock(item)}
+            >
+              <Text style={[styles.stockBtnText, { color: theme.primary }]}>+ Simkarta qo'shish</Text>
             </TouchableOpacity>
           </View>
         )}
       />
 
-      {/* Yangi tochka modali */}
       <Modal visible={createModal} animationType="slide" transparent>
         <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          <View style={styles.modalBox}>
+          <View style={[styles.modalBox, { backgroundColor: theme.surface }]}>
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-              <Text style={styles.modalTitle}>Yangi tochka</Text>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>Yangi tochka</Text>
 
-              <TextInput style={styles.input} placeholder="Tochka nomi (masalan: Yunusobod bozori)"
-                placeholderTextColor={colors.textSecondary}
-                value={form.name} onChangeText={v => setForm(f => ({ ...f, name: v }))} />
-              <TextInput style={styles.input} placeholder="Manzil (ko'cha, tuman, shahar)"
-                placeholderTextColor={colors.textSecondary}
-                value={form.location} onChangeText={v => setForm(f => ({ ...f, location: v }))} />
+              <TextInput
+                style={[styles.input, { borderColor: theme.border, color: theme.text, backgroundColor: theme.bg }]}
+                placeholder="Tochka nomi (masalan: Yunusobod bozori)"
+                placeholderTextColor={theme.textMuted}
+                value={form.name}
+                onChangeText={v => setForm(f => ({ ...f, name: v }))}
+              />
+              <TextInput
+                style={[styles.input, { borderColor: theme.border, color: theme.text, backgroundColor: theme.bg }]}
+                placeholder="Manzil (ko'cha, tuman, shahar)"
+                placeholderTextColor={theme.textMuted}
+                value={form.location}
+                onChangeText={v => setForm(f => ({ ...f, location: v }))}
+              />
 
-              <TouchableOpacity style={styles.gpsBtn} onPress={getGps} disabled={gpsLoading}>
+              <TouchableOpacity
+                style={[styles.gpsBtn, { borderColor: theme.primary }]}
+                onPress={getGps}
+                disabled={gpsLoading}
+              >
                 {gpsLoading
-                  ? <ActivityIndicator color={colors.primary} />
-                  : <Text style={styles.gpsBtnText}>
+                  ? <ActivityIndicator color={theme.primary} />
+                  : <Text style={[styles.gpsBtnText, { color: theme.primary }]}>
                       {form.lat ? `✅ GPS: ${form.lat.toFixed(4)}, ${form.lng.toFixed(4)}` : '📍 GPS olish'}
                     </Text>
                 }
               </TouchableOpacity>
 
-              <Text style={styles.fieldLabel}>Rasmlar (majburiy)</Text>
+              <Text style={[styles.fieldLabel, { color: theme.textSub }]}>RASMLAR (MAJBURIY)</Text>
               <PhotoPicker label="Tashqi ko'rinish" uri={form.photos.outside}
                 onPicked={uri => handlePhoto('outside', uri)} uploading={uploadingPhoto === 'outside'} />
               <PhotoPicker label="Ichki ko'rinish" uri={form.photos.inside}
@@ -239,23 +259,35 @@ export default function PointsScreen() {
               <PhotoPicker label="Reklama materiali" uri={form.photos.ad}
                 onPicked={uri => handlePhoto('ad', uri)} uploading={uploadingPhoto === 'ad'} />
 
-              <Text style={[styles.fieldLabel, { marginTop: 4 }]}>Boshlang'ich simkartalar</Text>
+              <Text style={[styles.fieldLabel, { marginTop: 4, color: theme.textSub }]}>Boshlang'ich simkartalar</Text>
               {OPERATORS.map(op => (
                 <View key={op.key} style={styles.opInputRow}>
                   <View style={[styles.opMini, { backgroundColor: op.color }]}>
-                    <Text style={[styles.opMiniText, { color: op.textColor }]}>{op.label}</Text>
+                    <Text style={[styles.opMiniText, { color: op.text }]}>{op.label}</Text>
                   </View>
-                  <TextInput style={styles.opInput} placeholder="0"
-                    value={form.stock[op.key]} keyboardType="number-pad"
-                    onChangeText={v => setForm(f => ({ ...f, stock: { ...f.stock, [op.key]: v } }))} />
+                  <TextInput
+                    style={[styles.opInput, { borderColor: theme.border, color: theme.text, backgroundColor: theme.bg }]}
+                    placeholder="0"
+                    placeholderTextColor={theme.textMuted}
+                    value={form.stock[op.key]}
+                    keyboardType="number-pad"
+                    onChangeText={v => setForm(f => ({ ...f, stock: { ...f.stock, [op.key]: v } }))}
+                  />
                 </View>
               ))}
 
               <View style={styles.modalBtns}>
-                <TouchableOpacity style={styles.cancelBtn} onPress={() => setCreateModal(false)}>
-                  <Text style={styles.cancelText}>Bekor</Text>
+                <TouchableOpacity
+                  style={[styles.cancelBtn, { borderColor: theme.border }]}
+                  onPress={() => setCreateModal(false)}
+                >
+                  <Text style={[styles.cancelText, { color: theme.textSub }]}>Bekor</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.confirmBtn} onPress={handleCreate} disabled={creating || !!uploadingPhoto}>
+                <TouchableOpacity
+                  style={[styles.confirmBtn, { backgroundColor: theme.primary }]}
+                  onPress={handleCreate}
+                  disabled={creating || !!uploadingPhoto}
+                >
                   {creating
                     ? <ActivityIndicator color="#fff" />
                     : <Text style={styles.confirmText}>Ochish</Text>
@@ -267,28 +299,39 @@ export default function PointsScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Simkarta qo'shish modali */}
       <Modal visible={addModal} animationType="slide" transparent>
         <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Simkarta qo'shish</Text>
-            {addPoint && <Text style={styles.modalSub}>{addPoint.name}</Text>}
-            <Text style={styles.modalNote}>GPS avtomatik olinadi — tochka yaqinida bo'ling (100 m)</Text>
+          <View style={[styles.modalBox, { backgroundColor: theme.surface }]}>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>Simkarta qo'shish</Text>
+            {addPoint && <Text style={[styles.modalSub, { color: theme.textSub }]}>{addPoint.name}</Text>}
+            <Text style={[styles.modalNote, { color: theme.error }]}>GPS avtomatik olinadi — tochka yaqinida bo'ling (100 m)</Text>
             {OPERATORS.map(op => (
               <View key={op.key} style={styles.opInputRow}>
                 <View style={[styles.opMini, { backgroundColor: op.color }]}>
-                  <Text style={[styles.opMiniText, { color: op.textColor }]}>{op.label}</Text>
+                  <Text style={[styles.opMiniText, { color: op.text }]}>{op.label}</Text>
                 </View>
-                <TextInput style={styles.opInput} placeholder="0"
-                  value={addStock[op.key]} keyboardType="number-pad"
-                  onChangeText={v => setAddStock(s => ({ ...s, [op.key]: v }))} />
+                <TextInput
+                  style={[styles.opInput, { borderColor: theme.border, color: theme.text, backgroundColor: theme.bg }]}
+                  placeholder="0"
+                  placeholderTextColor={theme.textMuted}
+                  value={addStock[op.key]}
+                  keyboardType="number-pad"
+                  onChangeText={v => setAddStock(s => ({ ...s, [op.key]: v }))}
+                />
               </View>
             ))}
             <View style={[styles.modalBtns, { marginTop: 8 }]}>
-              <TouchableOpacity style={styles.cancelBtn} onPress={() => setAddModal(false)}>
-                <Text style={styles.cancelText}>Bekor</Text>
+              <TouchableOpacity
+                style={[styles.cancelBtn, { borderColor: theme.border }]}
+                onPress={() => setAddModal(false)}
+              >
+                <Text style={[styles.cancelText, { color: theme.textSub }]}>Bekor</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.confirmBtn} onPress={handleAddStock} disabled={addSaving}>
+              <TouchableOpacity
+                style={[styles.confirmBtn, { backgroundColor: theme.primary }]}
+                onPress={handleAddStock}
+                disabled={addSaving}
+              >
                 {addSaving ? <ActivityIndicator color="#fff" /> : <Text style={styles.confirmText}>Qo'shish</Text>}
               </TouchableOpacity>
             </View>
@@ -300,11 +343,9 @@ export default function PointsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  center:    { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
   header: {
-    backgroundColor: colors.primary,
     paddingTop: 52, paddingBottom: 16, paddingHorizontal: 20,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
@@ -316,65 +357,56 @@ const styles = StyleSheet.create({
 
   empty:      { alignItems: 'center', paddingTop: 80 },
   emptyIcon:  { fontSize: 48, marginBottom: 12 },
-  emptyTitle: { fontSize: 17, fontWeight: '600', color: colors.text },
-  emptySub:   { fontSize: 13, color: colors.textSecondary, marginTop: 4 },
+  emptyTitle: { fontSize: 17, fontWeight: '600' },
+  emptySub:   { fontSize: 13, marginTop: 4 },
 
-  card: {
-    backgroundColor: colors.white, borderRadius: 12, padding: 14,
-    elevation: 2, shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4,
-  },
+  card:         { borderRadius: 12, padding: 14 },
   cardTop:      { marginBottom: 12 },
   cardTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cardName:     { fontSize: 15, fontWeight: '700', color: colors.text, flex: 1 },
+  cardName:     { fontSize: 15, fontWeight: '700', flex: 1 },
   totalBadge:   { flexDirection: 'row', alignItems: 'baseline' },
-  totalNum:     { fontSize: 20, fontWeight: '700', color: colors.primary },
-  totalLabel:   { fontSize: 13, color: colors.textSecondary },
-  cardLocation: { fontSize: 12, color: colors.textSecondary, marginTop: 3 },
+  totalNum:     { fontSize: 20, fontWeight: '700' },
+  totalLabel:   { fontSize: 13 },
+  cardLocation: { fontSize: 12, marginTop: 3 },
 
   opGrid: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
   opCell: { alignItems: 'center', flex: 1 },
   opDot:  { width: 10, height: 10, borderRadius: 5, marginBottom: 3 },
-  opName: { fontSize: 9, color: colors.textSecondary, fontWeight: '500' },
-  opQty:  { fontSize: 14, fontWeight: '700', color: colors.text },
+  opName: { fontSize: 9, fontWeight: '500' },
+  opQty:  { fontSize: 14, fontWeight: '700' },
 
-  stockBtn:     { backgroundColor: '#e8f5ee', borderRadius: 8, padding: 10, alignItems: 'center' },
-  stockBtnText: { color: colors.primary, fontWeight: '600', fontSize: 13 },
+  stockBtn:     { borderRadius: 8, padding: 10, alignItems: 'center' },
+  stockBtnText: { fontWeight: '600', fontSize: 13 },
 
   overlay:  { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
   modalBox: {
-    backgroundColor: colors.white,
     borderTopLeftRadius: 20, borderTopRightRadius: 20,
     padding: 24, paddingBottom: 40, maxHeight: '92%',
   },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 4 },
-  modalSub:   { fontSize: 14, color: colors.textSecondary, marginBottom: 8 },
-  modalNote:  { fontSize: 12, color: '#E32119', marginBottom: 14, lineHeight: 17 },
+  modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 4 },
+  modalSub:   { fontSize: 14, marginBottom: 8 },
+  modalNote:  { fontSize: 12, marginBottom: 14, lineHeight: 17 },
 
   input: {
-    borderWidth: 1, borderColor: colors.border, borderRadius: 10,
-    padding: 13, fontSize: 15, color: colors.text,
-    backgroundColor: colors.background, marginBottom: 12,
+    borderWidth: 1, borderRadius: 10,
+    padding: 13, fontSize: 15, marginBottom: 12,
   },
   gpsBtn: {
-    borderWidth: 1.5, borderColor: colors.primary, borderRadius: 10,
+    borderWidth: 1.5, borderRadius: 10,
     padding: 12, alignItems: 'center', marginBottom: 16,
   },
-  gpsBtnText: { color: colors.primary, fontWeight: '600', fontSize: 14 },
+  gpsBtnText: { fontWeight: '600', fontSize: 14 },
 
-  fieldLabel: { fontSize: 12, fontWeight: '600', color: colors.textSecondary, marginBottom: 10, textTransform: 'uppercase' },
+  fieldLabel: { fontSize: 12, fontWeight: '600', marginBottom: 10, textTransform: 'uppercase' },
 
   opInputRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 10 },
   opMini:     { borderRadius: 6, paddingHorizontal: 10, paddingVertical: 5, minWidth: 72, alignItems: 'center' },
   opMiniText: { fontSize: 12, fontWeight: '700' },
-  opInput: {
-    flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 8,
-    padding: 10, fontSize: 15, color: colors.text, backgroundColor: colors.background,
-  },
+  opInput:    { flex: 1, borderWidth: 1, borderRadius: 8, padding: 10, fontSize: 15 },
 
   modalBtns:  { flexDirection: 'row', gap: 10, marginTop: 16 },
-  cancelBtn:  { flex: 1, borderWidth: 1.5, borderColor: colors.border, borderRadius: 10, padding: 14, alignItems: 'center' },
-  cancelText: { fontWeight: '600', color: colors.textSecondary },
-  confirmBtn: { flex: 1, backgroundColor: colors.primary, borderRadius: 10, padding: 14, alignItems: 'center' },
+  cancelBtn:  { flex: 1, borderWidth: 1.5, borderRadius: 10, padding: 14, alignItems: 'center' },
+  cancelText: { fontWeight: '600' },
+  confirmBtn: { flex: 1, borderRadius: 10, padding: 14, alignItems: 'center' },
   confirmText:{ color: '#fff', fontWeight: '700', fontSize: 15 },
 });

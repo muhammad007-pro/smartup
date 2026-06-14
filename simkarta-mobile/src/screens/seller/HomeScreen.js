@@ -1,21 +1,17 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  RefreshControl, ActivityIndicator,
+  RefreshControl, ActivityIndicator, TouchableOpacity,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import api from '../../api';
 import { getUser } from '../../auth';
-import { colors } from '../../theme';
+import { useTheme } from '../../ThemeContext';
+import { OPERATORS } from '../../theme';
+import { useLogout } from '../../navigation/AppNavigator';
 import DateRangePicker from '../../components/DateRangePicker';
-
-const OPERATORS = [
-  { key: 'beeline',  label: 'Beeline',  color: '#FFCC00', textColor: '#1a1a1a' },
-  { key: 'ucell',    label: 'Ucell',    color: '#8B2FC9', textColor: '#ffffff' },
-  { key: 'uzmobile', label: 'Uzmobile', color: '#0066CC', textColor: '#ffffff' },
-  { key: 'mobiuz',   label: 'Mobiuz',   color: '#E32119', textColor: '#ffffff' },
-  { key: 'oq',       label: 'OQ',       color: '#1a1a1a', textColor: '#ffffff' },
-];
 
 const OP_MAP = Object.fromEntries(OPERATORS.map(o => [o.key, o]));
 
@@ -28,6 +24,7 @@ function formatTime(iso) {
   const d = new Date(iso);
   return d.toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' });
 }
+
 function formatDate(iso) {
   const d = new Date(iso);
   const today = new Date().toISOString().slice(0, 10);
@@ -35,13 +32,16 @@ function formatDate(iso) {
   return d.toLocaleDateString('uz-UZ', { day: 'numeric', month: 'short' });
 }
 
-export default function SellerHome() {
-  const [stock, setStock]     = useState([]);
-  const [sales, setSales]     = useState([]);
-  const [user, setUser]       = useState(null);
-  const [loading, setLoading] = useState(true);
+export default function SellerHome({ navigation }) {
+  const { theme, isDark } = useTheme();
+  const logout = useLogout(navigation);
+
+  const [stock, setStock]       = useState([]);
+  const [sales, setSales]       = useState([]);
+  const [user, setUser]         = useState(null);
+  const [loading, setLoading]   = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [filter, setFilter]   = useState({ preset: 'all', dateFrom: null, dateTo: null });
+  const [filter, setFilter]     = useState({ preset: 'all', dateFrom: null, dateTo: null });
 
   const fetchData = useCallback(async () => {
     try {
@@ -58,7 +58,6 @@ export default function SellerHome() {
       setSales(salesRes.data || []);
       setUser(u);
     } catch {
-      // tarmoq xatosi
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -68,24 +67,35 @@ export default function SellerHome() {
   useFocusEffect(useCallback(() => { fetchData(); }, [fetchData]));
   const onRefresh = () => { setRefreshing(true); fetchData(); };
 
-  const totalQty  = stock.reduce((s, i) => s + i.qty, 0);
-  const stockMap  = Object.fromEntries(stock.map(s => [s.operator, s.qty]));
+  const totalQty   = stock.reduce((s, i) => s + i.qty, 0);
+  const stockMap   = Object.fromEntries(stock.map(s => [s.operator, s.qty]));
   const todaySales = todayCount(sales);
+  const firstName  = user?.full_name?.split(' ')[0] ?? '';
 
   if (loading) {
-    return <View style={styles.center}><ActivityIndicator size="large" color={colors.primary} /></View>;
+    return (
+      <View style={[styles.center, { backgroundColor: theme.bg }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
+      </View>
+    );
   }
 
   return (
     <ScrollView
-      style={styles.scroll}
-      contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+      style={{ flex: 1, backgroundColor: theme.bg }}
+      contentContainerStyle={{ paddingBottom: 90 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
     >
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Salom, {user?.full_name?.split(' ')[0]}!</Text>
-        <Text style={styles.headerSub}>Sotuvchi hisobingiz</Text>
+      <LinearGradient colors={theme.headerGrad} style={styles.header}>
+        <View style={styles.headerRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.headerTitle}>Salom, {firstName}!</Text>
+            <Text style={styles.headerSub}>Sotuvchi hisobingiz</Text>
+          </View>
+          <TouchableOpacity onPress={logout} style={styles.logoutBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Ionicons name="log-out-outline" size={24} color="rgba(255,255,255,0.9)" />
+          </TouchableOpacity>
+        </View>
         <View style={styles.statsRow}>
           <View style={styles.statBox}>
             <Text style={styles.statNum}>{totalQty}</Text>
@@ -102,67 +112,87 @@ export default function SellerHome() {
             <Text style={styles.statLabel}>Jami sotuvlar</Text>
           </View>
         </View>
-      </View>
+      </LinearGradient>
 
-      {/* Shaxsiy zaxira */}
-      <Text style={styles.sectionTitle}>Shaxsiy zaxira</Text>
-      <View style={styles.stockCard}>
+      <Text style={[styles.sectionTitle, { color: theme.textSub }]}>Shaxsiy zaxira</Text>
+      <View style={[
+        styles.stockCard,
+        { backgroundColor: theme.surface },
+        isDark && { borderWidth: 1, borderColor: theme.border },
+        theme.card,
+      ]}>
         {OPERATORS.map((op, i) => {
           const qty = stockMap[op.key] ?? 0;
           return (
-            <View key={op.key} style={[styles.opRow, i < OPERATORS.length - 1 && styles.opBorder]}>
+            <View
+              key={op.key}
+              style={[
+                styles.opRow,
+                i < OPERATORS.length - 1 && { borderBottomWidth: 1, borderBottomColor: theme.border },
+              ]}
+            >
               <View style={[styles.opBadge, { backgroundColor: op.color }]}>
-                <Text style={[styles.opLabel, { color: op.textColor }]}>{op.label}</Text>
+                <Text style={[styles.opLabel, { color: op.text }]}>{op.label}</Text>
               </View>
-              <View style={styles.barWrap}>
+              <View style={[styles.barWrap, { backgroundColor: theme.border }]}>
                 <View style={[
                   styles.barFill,
                   { width: qty > 0 ? `${Math.min((qty / Math.max(totalQty, 1)) * 100, 100)}%` : '1%', backgroundColor: op.color },
                 ]} />
               </View>
-              <Text style={[styles.opQty, qty === 0 && { color: colors.border }]}>{qty} ta</Text>
+              <Text style={[styles.opQty, { color: qty === 0 ? theme.textMuted : theme.text }]}>{qty} ta</Text>
             </View>
           );
         })}
       </View>
 
-      {/* Sotuvlar sana filtri */}
-      <Text style={styles.sectionTitle}>Sotuvlar</Text>
+      <Text style={[styles.sectionTitle, { color: theme.textSub }]}>Sotuvlar</Text>
       <DateRangePicker
         value={filter}
         onChange={(f) => { setFilter(f); setLoading(true); }}
       />
 
       {sales.length > 0 && (
-        <>
-          <View style={styles.salesCard}>
-            {sales.slice(0, 20).map((sale, i) => {
-              const op = OP_MAP[sale.operator];
-              return (
-                <View key={sale.id} style={[styles.saleRow, i < Math.min(sales.length, 20) - 1 && styles.saleBorder]}>
-                  <View style={[styles.saleOpDot, { backgroundColor: op?.color || '#ccc' }]} />
-                  <View style={styles.saleInfo}>
-                    <Text style={styles.saleOp}>{op?.label || sale.operator}</Text>
-                    <Text style={styles.saleSource}>{sale.source === 'office' ? 'Ofis' : 'Tochka'}</Text>
-                  </View>
-                  <View style={styles.saleTime}>
-                    <Text style={styles.saleDate}>{formatDate(sale.created_at)}</Text>
-                    <Text style={styles.saleHour}>{formatTime(sale.created_at)}</Text>
-                  </View>
+        <View style={[
+          styles.salesCard,
+          { backgroundColor: theme.surface },
+          isDark && { borderWidth: 1, borderColor: theme.border },
+          theme.card,
+        ]}>
+          {sales.slice(0, 20).map((sale, i) => {
+            const op = OP_MAP[sale.operator];
+            return (
+              <View
+                key={sale.id}
+                style={[
+                  styles.saleRow,
+                  i < Math.min(sales.length, 20) - 1 && { borderBottomWidth: 1, borderBottomColor: theme.border },
+                ]}
+              >
+                <View style={[styles.saleOpDot, { backgroundColor: op?.color || '#ccc' }]} />
+                <View style={styles.saleInfo}>
+                  <Text style={[styles.saleOp, { color: theme.text }]}>{op?.label || sale.operator}</Text>
+                  <Text style={[styles.saleSource, { color: theme.textSub }]}>{sale.source === 'office' ? 'Ofis' : 'Tochka'}</Text>
                 </View>
-              );
-            })}
-          </View>
-        </>
+                <View style={styles.saleTime}>
+                  <Text style={[styles.saleDate, { color: theme.textSub }]}>{formatDate(sale.created_at)}</Text>
+                  <Text style={[styles.saleHour, { color: theme.textMuted }]}>{formatTime(sale.created_at)}</Text>
+                </View>
+              </View>
+            );
+          })}
+        </View>
       )}
 
       {sales.length === 0 && (
         <View style={styles.empty}>
           <Text style={styles.emptyIcon}>📊</Text>
-          <Text style={styles.emptyText}>
-            {filter.preset === 'all' ? 'Hali sotuvlar yo\'q' : 'Bu davrda sotuvlar yo\'q'}
+          <Text style={[styles.emptyText, { color: theme.text }]}>
+            {filter.preset === 'all' ? "Hali sotuvlar yo'q" : "Bu davrda sotuvlar yo'q"}
           </Text>
-          {filter.preset === 'all' && <Text style={styles.emptySub}>"Sotish" tabiga o'ting</Text>}
+          {filter.preset === 'all' && (
+            <Text style={[styles.emptySub, { color: theme.textSub }]}>"Sotish" tabiga o'ting</Text>
+          )}
         </View>
       )}
     </ScrollView>
@@ -170,16 +200,13 @@ export default function SellerHome() {
 }
 
 const styles = StyleSheet.create({
-  scroll:  { flex: 1, backgroundColor: colors.background },
-  content: { paddingBottom: 90 },
-  center:  { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
-  header: {
-    backgroundColor: colors.primary,
-    paddingTop: 52, paddingBottom: 20, paddingHorizontal: 20,
-  },
+  header: { paddingTop: 52, paddingBottom: 20, paddingHorizontal: 20 },
+  headerRow:   { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 14 },
   headerTitle: { fontSize: 22, fontWeight: '700', color: '#fff' },
-  headerSub:   { fontSize: 13, color: 'rgba(255,255,255,0.75)', marginTop: 2, marginBottom: 14 },
+  headerSub:   { fontSize: 13, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
+  logoutBtn:   { marginTop: 2 },
 
   statsRow: {
     flexDirection: 'row',
@@ -192,41 +219,31 @@ const styles = StyleSheet.create({
   statDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.25)', marginHorizontal: 8 },
 
   sectionTitle: {
-    fontSize: 13, fontWeight: '600', color: colors.textSecondary,
+    fontSize: 13, fontWeight: '600',
     textTransform: 'uppercase', letterSpacing: 0.8,
     marginTop: 20, marginBottom: 10, marginHorizontal: 16,
   },
 
-  stockCard: {
-    marginHorizontal: 16, backgroundColor: colors.white, borderRadius: 12,
-    overflow: 'hidden', elevation: 2,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4,
-  },
-  opRow:    { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 14 },
-  opBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
-  opBadge:  { borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4, minWidth: 72, alignItems: 'center' },
-  opLabel:  { fontSize: 12, fontWeight: '700' },
-  barWrap:  { flex: 1, height: 6, backgroundColor: colors.border, borderRadius: 3, marginHorizontal: 12, overflow: 'hidden' },
-  barFill:  { height: '100%', borderRadius: 3 },
-  opQty:    { fontSize: 14, fontWeight: '600', color: colors.text, minWidth: 44, textAlign: 'right' },
+  stockCard: { marginHorizontal: 16, borderRadius: 12, overflow: 'hidden' },
+  opRow:     { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 14 },
+  opBadge:   { borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4, minWidth: 72, alignItems: 'center' },
+  opLabel:   { fontSize: 12, fontWeight: '700' },
+  barWrap:   { flex: 1, height: 6, borderRadius: 3, marginHorizontal: 12, overflow: 'hidden' },
+  barFill:   { height: '100%', borderRadius: 3 },
+  opQty:     { fontSize: 14, fontWeight: '600', minWidth: 44, textAlign: 'right' },
 
-  salesCard: {
-    marginHorizontal: 16, backgroundColor: colors.white, borderRadius: 12,
-    overflow: 'hidden', elevation: 2,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4,
-  },
+  salesCard:  { marginHorizontal: 16, borderRadius: 12, overflow: 'hidden' },
   saleRow:    { flexDirection: 'row', alignItems: 'center', paddingVertical: 11, paddingHorizontal: 14 },
-  saleBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
   saleOpDot:  { width: 12, height: 12, borderRadius: 6 },
   saleInfo:   { flex: 1, marginLeft: 12 },
-  saleOp:     { fontSize: 14, fontWeight: '600', color: colors.text },
-  saleSource: { fontSize: 12, color: colors.textSecondary, marginTop: 1 },
+  saleOp:     { fontSize: 14, fontWeight: '600' },
+  saleSource: { fontSize: 12, marginTop: 1 },
   saleTime:   { alignItems: 'flex-end' },
-  saleDate:   { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
-  saleHour:   { fontSize: 11, color: colors.border, marginTop: 1 },
+  saleDate:   { fontSize: 12, fontWeight: '600' },
+  saleHour:   { fontSize: 11, marginTop: 1 },
 
   empty:     { alignItems: 'center', paddingTop: 40 },
   emptyIcon: { fontSize: 40, marginBottom: 10 },
-  emptyText: { fontSize: 16, fontWeight: '600', color: colors.text },
-  emptySub:  { fontSize: 13, color: colors.textSecondary, marginTop: 4 },
+  emptyText: { fontSize: 16, fontWeight: '600' },
+  emptySub:  { fontSize: 13, marginTop: 4 },
 });

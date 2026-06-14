@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Platform,
+  View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { colors } from '../theme';
+import { useTheme } from '../ThemeContext';
 
 const PRESETS = [
   { key: 'all',    label: 'Hammasi' },
@@ -35,6 +35,7 @@ function getPresetRange(key) {
 }
 
 export default function DateRangePicker({ value, onChange }) {
+  const { theme } = useTheme();
   const activePreset = value?.preset || 'all';
 
   const [showPicker, setShowPicker] = useState(null); // 'from' | 'to' | null
@@ -67,32 +68,71 @@ export default function DateRangePicker({ value, onChange }) {
 
   return (
     <View>
-      {/* Preset tugmalar */}
-      <View style={styles.row}>
-        {PRESETS.map(p => (
-          <TouchableOpacity
-            key={p.key}
-            style={[styles.chip, activePreset === p.key && styles.chipActive]}
-            onPress={() => selectPreset(p.key)}
-          >
-            <Text style={[styles.chipText, activePreset === p.key && styles.chipTextActive]}>
-              {p.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      {/* Preset chips — horizontal scroll */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.chipRow}
+      >
+        {PRESETS.map(p => {
+          const isActive = activePreset === p.key;
+          return (
+            <TouchableOpacity
+              key={p.key}
+              style={[
+                styles.chip,
+                {
+                  backgroundColor: isActive ? theme.primary : theme.surface,
+                  borderColor: isActive ? theme.primary : theme.border,
+                },
+              ]}
+              onPress={() => selectPreset(p.key)}
+              activeOpacity={0.75}
+            >
+              <Text
+                style={[
+                  styles.chipText,
+                  { color: isActive ? '#ffffff' : theme.textSub },
+                ]}
+              >
+                {p.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
 
       {/* Maxsus sana tanlash */}
       {activePreset === 'custom' && (
         <View style={styles.customRow}>
-          <TouchableOpacity style={styles.dateBtn} onPress={() => setShowPicker('from')}>
-            <Text style={styles.dateBtnLabel}>Dan:</Text>
-            <Text style={styles.dateBtnValue}>{toDisp(customFrom)}</Text>
+          <TouchableOpacity
+            style={[
+              styles.dateBtn,
+              { backgroundColor: theme.surface, borderColor: theme.primary },
+            ]}
+            onPress={() => setShowPicker('from')}
+            activeOpacity={0.75}
+          >
+            <Text style={[styles.dateBtnLabel, { color: theme.textSub }]}>Dan:</Text>
+            <Text style={[styles.dateBtnValue, { color: theme.primary }]}>
+              {toDisp(customFrom)}
+            </Text>
           </TouchableOpacity>
-          <Text style={styles.dateSep}>→</Text>
-          <TouchableOpacity style={styles.dateBtn} onPress={() => setShowPicker('to')}>
-            <Text style={styles.dateBtnLabel}>Gacha:</Text>
-            <Text style={styles.dateBtnValue}>{toDisp(customTo)}</Text>
+
+          <Text style={[styles.dateSep, { color: theme.textMuted }]}>→</Text>
+
+          <TouchableOpacity
+            style={[
+              styles.dateBtn,
+              { backgroundColor: theme.surface, borderColor: theme.primary },
+            ]}
+            onPress={() => setShowPicker('to')}
+            activeOpacity={0.75}
+          >
+            <Text style={[styles.dateBtnLabel, { color: theme.textSub }]}>Gacha:</Text>
+            <Text style={[styles.dateBtnValue, { color: theme.primary }]}>
+              {toDisp(customTo)}
+            </Text>
           </TouchableOpacity>
         </View>
       )}
@@ -112,30 +152,51 @@ export default function DateRangePicker({ value, onChange }) {
 }
 
 const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: 6,
-    paddingHorizontal: 16, paddingVertical: 10,
+  chipRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 8,
   },
   chip: {
-    borderWidth: 1, borderColor: colors.border, borderRadius: 20,
-    paddingHorizontal: 12, paddingVertical: 5,
-    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
   },
-  chipActive:     { borderColor: colors.primary, backgroundColor: '#e8f5ee' },
-  chipText:       { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
-  chipTextActive: { color: colors.primary },
+  chipText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
 
   customRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingBottom: 8, gap: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    gap: 8,
   },
   dateBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center',
-    backgroundColor: colors.white,
-    borderWidth: 1, borderColor: colors.primary, borderRadius: 10,
-    paddingHorizontal: 10, paddingVertical: 8, gap: 6,
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 6,
   },
-  dateBtnLabel: { fontSize: 11, color: colors.textSecondary, fontWeight: '600' },
-  dateBtnValue: { fontSize: 13, color: colors.primary, fontWeight: '700', flex: 1, textAlign: 'center' },
-  dateSep:      { fontSize: 16, color: colors.textSecondary },
+  dateBtnLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  dateBtnValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    flex: 1,
+    textAlign: 'center',
+  },
+  dateSep: {
+    fontSize: 16,
+  },
 });

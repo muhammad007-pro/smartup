@@ -4,8 +4,9 @@ import {
   Modal, Alert, ActivityIndicator, RefreshControl,
   KeyboardAvoidingView, Platform, TextInput, ScrollView,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import api from '../../api';
-import { colors } from '../../theme';
+import { useTheme } from '../../ThemeContext';
 
 const OPERATORS = [
   { key: 'beeline',  label: 'Beeline',  color: '#FFCC00', textColor: '#1a1a1a' },
@@ -18,6 +19,7 @@ const OPERATORS = [
 const EMPTY_QTY = { beeline: '', ucell: '', uzmobile: '', mobiuz: '', oq: '' };
 
 export default function StockScreen() {
+  const { theme, isDark } = useTheme();
   const [users, setUsers]       = useState([]);
   const [loading, setLoading]   = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -84,21 +86,29 @@ export default function StockScreen() {
   const stockOf = (user, op) => (user.stock || []).find(s => s.operator === op)?.qty ?? 0;
 
   if (loading) {
-    return <View style={styles.center}><ActivityIndicator size="large" color={colors.primary} /></View>;
+    return (
+      <View style={[styles.center, { backgroundColor: theme.bg }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
+      </View>
+    );
   }
 
-  return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Ombor</Text>
-        <Text style={styles.headerSub}>Hodimga simkarta berish</Text>
-      </View>
+  const cardShadow = isDark
+    ? { borderWidth: 1, borderColor: theme.border }
+    : theme.card;
 
-      <View style={styles.legend}>
+  return (
+    <View style={[styles.container, { backgroundColor: theme.bg }]}>
+      <LinearGradient colors={theme.headerGrad} style={styles.header}>
+        <Text style={styles.headerTitle}>Ombor</Text>
+        <Text style={styles.headerSub}>Simkarta berish</Text>
+      </LinearGradient>
+
+      <View style={[styles.legend, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
         {OPERATORS.map(op => (
           <View key={op.key} style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: op.color }]} />
-            <Text style={styles.legendLabel}>{op.label}</Text>
+            <Text style={[styles.legendLabel, { color: theme.textSub }]}>{op.label}</Text>
           </View>
         ))}
       </View>
@@ -106,27 +116,41 @@ export default function StockScreen() {
       <FlatList
         data={users}
         keyExtractor={u => u.id}
-        contentContainerStyle={styles.list}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        contentContainerStyle={[styles.list, users.length === 0 && styles.listEmpty]}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
         ListEmptyComponent={
-          <View style={styles.empty}><Text style={styles.emptyText}>Xodimlar yo'q</Text></View>
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyIcon}>📦</Text>
+            <Text style={[styles.emptyTitle, { color: theme.text }]}>Xodimlar yo'q</Text>
+            <Text style={[styles.emptySub, { color: theme.textMuted }]}>Xodimlar qo'shilgach bu yerda ko'rinadi</Text>
+          </View>
         }
         renderItem={({ item }) => (
-          <View style={styles.card}>
+          <View style={[styles.card, { backgroundColor: theme.surface }, cardShadow]}>
             <View style={styles.cardHeader}>
-              <View>
-                <Text style={styles.cardName}>{item.full_name}</Text>
-                <Text style={styles.cardRole}>{item.role === 'agent' ? 'Agent' : 'Sotuvchi'} · {item.phone}</Text>
+              <View style={styles.cardLeft}>
+                <Text style={[styles.cardName, { color: theme.text }]}>{item.full_name}</Text>
+                <Text style={[styles.cardRole, { color: theme.textSub }]}>
+                  {item.role === 'agent' ? 'Agent' : 'Sotuvchi'} · {item.phone}
+                </Text>
               </View>
-              <TouchableOpacity style={styles.issueBtn} onPress={() => openIssue(item)}>
+              <TouchableOpacity
+                activeOpacity={0.75}
+                style={[styles.issueBtn, { backgroundColor: theme.primary }]}
+                onPress={() => openIssue(item)}
+              >
                 <Text style={styles.issueBtnText}>Berish</Text>
               </TouchableOpacity>
             </View>
+
+            <View style={[styles.opGridDivider, { backgroundColor: theme.border }]} />
+
             <View style={styles.opGrid}>
               {OPERATORS.map(op => (
                 <View key={op.key} style={styles.opCell}>
                   <View style={[styles.opDot, { backgroundColor: op.color }]} />
-                  <Text style={styles.opQty}>{stockOf(item, op.key)}</Text>
+                  <Text style={[styles.opQty, { color: theme.text }]}>{stockOf(item, op.key)}</Text>
+                  <Text style={[styles.opLabel, { color: theme.textMuted }]}>{op.label}</Text>
                 </View>
               ))}
             </View>
@@ -134,43 +158,54 @@ export default function StockScreen() {
         )}
       />
 
-      {/* Ko'p operator birdan berish modali */}
       <Modal visible={modal} animationType="slide" transparent>
         <KeyboardAvoidingView
           style={styles.modalOverlay}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-          <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Simkarta berish</Text>
+          <View style={[styles.modalBox, { backgroundColor: theme.surface }]}>
+            <View style={[styles.modalHandle, { backgroundColor: theme.border }]} />
+            <Text style={[styles.modalTitle, { color: theme.text }]}>Simkarta berish</Text>
             {selectedUser && (
-              <Text style={styles.modalSub}>{selectedUser.full_name} · {selectedUser.phone}</Text>
+              <Text style={[styles.modalSub, { color: theme.textSub }]}>
+                {selectedUser.full_name} · {selectedUser.phone}
+              </Text>
             )}
 
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-              <Text style={styles.fieldLabel}>Har operator uchun miqdor kiriting</Text>
+              <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>Har operator uchun miqdor kiriting</Text>
               {OPERATORS.map(op => (
                 <View key={op.key} style={styles.opRow}>
                   <View style={[styles.opBadge, { backgroundColor: op.color }]}>
                     <Text style={[styles.opBadgeText, { color: op.textColor }]}>{op.label}</Text>
                   </View>
                   <TextInput
-                    style={styles.opInput}
+                    style={[styles.opInput, { color: theme.text, backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}
                     placeholder="0"
-                    placeholderTextColor={colors.textSecondary}
+                    placeholderTextColor={theme.textMuted}
                     value={qtys[op.key]}
                     onChangeText={v => setQtys(q => ({ ...q, [op.key]: v }))}
                     keyboardType="number-pad"
                     returnKeyType="next"
                   />
-                  <Text style={styles.opUnit}>ta</Text>
+                  <Text style={[styles.opUnit, { color: theme.textSub }]}>ta</Text>
                 </View>
               ))}
 
               <View style={styles.modalBtns}>
-                <TouchableOpacity style={styles.cancelBtn} onPress={() => setModal(false)}>
-                  <Text style={styles.cancelText}>Bekor</Text>
+                <TouchableOpacity
+                  activeOpacity={0.75}
+                  style={[styles.cancelBtn, { borderColor: theme.border, backgroundColor: theme.surfaceAlt }]}
+                  onPress={() => setModal(false)}
+                >
+                  <Text style={[styles.cancelText, { color: theme.textSub }]}>Bekor</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.confirmBtn} onPress={handleIssueAll} disabled={saving}>
+                <TouchableOpacity
+                  activeOpacity={0.75}
+                  style={[styles.confirmBtn, { backgroundColor: theme.primary }]}
+                  onPress={handleIssueAll}
+                  disabled={saving}
+                >
                   {saving
                     ? <ActivityIndicator color="#fff" />
                     : <Text style={styles.confirmText}>Berish</Text>
@@ -186,70 +221,72 @@ export default function StockScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1 },
   center:    { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
   header: {
-    backgroundColor: colors.primary,
-    paddingTop: 52, paddingBottom: 16, paddingHorizontal: 20,
+    paddingTop: 52, paddingBottom: 18, paddingHorizontal: 20,
   },
-  headerTitle: { fontSize: 22, fontWeight: '700', color: '#fff' },
-  headerSub:   { fontSize: 13, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
+  headerTitle: { fontSize: 24, fontWeight: '700', color: '#fff' },
+  headerSub:   { fontSize: 13, color: 'rgba(255,255,255,0.78)', marginTop: 3 },
 
   legend: {
     flexDirection: 'row', justifyContent: 'space-around',
-    backgroundColor: colors.white,
     paddingVertical: 10,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    borderBottomWidth: 1,
   },
-  legendItem:  { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  legendItem:  { flexDirection: 'row', alignItems: 'center', gap: 5 },
   legendDot:   { width: 10, height: 10, borderRadius: 5 },
-  legendLabel: { fontSize: 11, color: colors.textSecondary, fontWeight: '500' },
+  legendLabel: { fontSize: 11, fontWeight: '600' },
 
-  list: { padding: 12, gap: 10, paddingBottom: 90 },
+  list:      { padding: 14, gap: 10, paddingBottom: 90 },
+  listEmpty: { flex: 1 },
 
   card: {
-    backgroundColor: colors.white, borderRadius: 12, padding: 14,
-    elevation: 2, shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4,
+    borderRadius: 14, padding: 16,
   },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  cardName:   { fontSize: 15, fontWeight: '600', color: colors.text },
-  cardRole:   { fontSize: 12, color: colors.textSecondary, marginTop: 1 },
-  issueBtn:   { backgroundColor: colors.primary, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 7 },
-  issueBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  cardHeader:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  cardLeft:      { flex: 1, marginRight: 12 },
+  cardName:      { fontSize: 16, fontWeight: '700' },
+  cardRole:      { fontSize: 12, marginTop: 2 },
+  issueBtn:      { borderRadius: 10, paddingHorizontal: 16, paddingVertical: 9 },
+  issueBtnText:  { color: '#fff', fontWeight: '700', fontSize: 13 },
 
-  opGrid: { flexDirection: 'row', justifyContent: 'space-between' },
-  opCell: { alignItems: 'center', flex: 1 },
-  opDot:  { width: 10, height: 10, borderRadius: 5, marginBottom: 4 },
-  opQty:  { fontSize: 13, fontWeight: '700', color: colors.text },
+  opGridDivider: { height: 1, marginVertical: 12 },
+  opGrid:        { flexDirection: 'row', justifyContent: 'space-between' },
+  opCell:        { alignItems: 'center', flex: 1 },
+  opDot:         { width: 10, height: 10, borderRadius: 5, marginBottom: 4 },
+  opQty:         { fontSize: 15, fontWeight: '700' },
+  opLabel:       { fontSize: 10, marginTop: 1 },
 
-  empty:     { alignItems: 'center', paddingTop: 60 },
-  emptyText: { color: colors.textSecondary, fontSize: 16 },
+  emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 80 },
+  emptyIcon:  { fontSize: 56, marginBottom: 16 },
+  emptyTitle: { fontSize: 18, fontWeight: '700', marginBottom: 8 },
+  emptySub:   { fontSize: 14, textAlign: 'center', paddingHorizontal: 40, lineHeight: 20 },
 
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalBox: {
-    backgroundColor: colors.white,
-    borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    padding: 24, paddingBottom: 36, maxHeight: '85%',
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    padding: 24, paddingBottom: 40, maxHeight: '85%',
   },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: colors.text },
-  modalSub:   { fontSize: 13, color: colors.textSecondary, marginTop: 2, marginBottom: 16 },
-  fieldLabel: { fontSize: 12, fontWeight: '600', color: colors.textSecondary, marginBottom: 12, textTransform: 'uppercase' },
+  modalHandle:  { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
+  modalTitle:   { fontSize: 20, fontWeight: '700' },
+  modalSub:     { fontSize: 13, marginTop: 3, marginBottom: 20 },
+  fieldLabel:   { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', marginBottom: 14, letterSpacing: 0.6 },
 
-  opRow:     { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 10 },
-  opBadge:   { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, minWidth: 76, alignItems: 'center' },
-  opBadgeText: { fontSize: 12, fontWeight: '700' },
-  opInput:   {
-    flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 8,
-    padding: 10, fontSize: 16, color: colors.text,
-    backgroundColor: colors.background, textAlign: 'center',
+  opRow:      { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 10 },
+  opBadge:    { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 7, minWidth: 76, alignItems: 'center' },
+  opBadgeText:{ fontSize: 12, fontWeight: '700' },
+  opInput:    {
+    flex: 1, borderWidth: 1.5, borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 10,
+    fontSize: 16, textAlign: 'center',
   },
-  opUnit:    { fontSize: 13, color: colors.textSecondary, minWidth: 20 },
+  opUnit:     { fontSize: 13, minWidth: 20, fontWeight: '500' },
 
-  modalBtns:  { flexDirection: 'row', gap: 10, marginTop: 16 },
-  cancelBtn:  { flex: 1, borderWidth: 1.5, borderColor: colors.border, borderRadius: 10, padding: 14, alignItems: 'center' },
-  cancelText: { fontWeight: '600', color: colors.textSecondary },
-  confirmBtn: { flex: 1, backgroundColor: colors.primary, borderRadius: 10, padding: 14, alignItems: 'center' },
-  confirmText:{ color: '#fff', fontWeight: '700', fontSize: 15 },
+  modalBtns:   { flexDirection: 'row', gap: 10, marginTop: 20 },
+  cancelBtn:   { flex: 1, borderWidth: 1.5, borderRadius: 12, padding: 14, alignItems: 'center' },
+  cancelText:  { fontWeight: '600', fontSize: 15 },
+  confirmBtn:  { flex: 1, borderRadius: 12, padding: 14, alignItems: 'center' },
+  confirmText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 });
