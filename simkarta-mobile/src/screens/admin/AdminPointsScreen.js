@@ -29,6 +29,7 @@ function matchesSearch(point, query) {
   if (point.location.toLowerCase().includes(q)) return true;
   if (point.agent_name && point.agent_name.toLowerCase().includes(q)) return true;
   if (qPhone.length >= 3 && point.agent_phone && normalizePhone(point.agent_phone).includes(qPhone)) return true;
+  if (qPhone.length >= 3 && point.phone && normalizePhone(point.phone).includes(qPhone)) return true;
   return false;
 }
 
@@ -102,8 +103,8 @@ export default function AdminPointsScreen({ navigation, route }) {
         <Text style={styles.headerTitle}>Tochkalar</Text>
         <Text style={styles.headerSub}>
           {readOnly
-            ? `${active.length} ta faol tochka`
-            : `${active.length} faol · ${archived.length} arxiv`}
+            ? `Top 20 · ${active.length} ta faol (sotuvlar bo'yicha)`
+            : `${active.length} faol · ${archived.length} arxiv · sotuvlar bo'yicha`}
         </Text>
       </LinearGradient>
 
@@ -188,6 +189,9 @@ export default function AdminPointsScreen({ navigation, route }) {
                       {item.agent_phone ? `  ·  ${item.agent_phone}` : ''}
                     </Text>
                   )}
+                  {item.phone && (
+                    <Text style={[styles.cardPhone, { color: theme.textSub }]}>📞 {item.phone}</Text>
+                  )}
                 </View>
                 <View style={styles.totalBlock}>
                   <Text style={[styles.totalNum, { color: theme.primary }]}>{total}</Text>
@@ -265,6 +269,7 @@ const styles = StyleSheet.create({
   archivedText:  { fontSize: 10, fontWeight: '700' },
   cardLocation:  { fontSize: 12, marginTop: 3 },
   cardAgent:     { fontSize: 11, marginTop: 2, fontWeight: '500' },
+  cardPhone:     { fontSize: 11, marginTop: 2 },
 
   totalBlock: { alignItems: 'flex-end' },
   totalNum:   { fontSize: 24, fontWeight: '800' },

@@ -168,9 +168,9 @@ export default function SalesHistoryScreen({ navigation, route }) {
           styles.sourceBadge,
           item.source === 'point'
             ? { backgroundColor: isDark ? theme.surfaceAlt : '#e8f5ee' }
-            : { backgroundColor: isDark ? theme.surfaceAlt : '#f0f0f0' },
+            : { backgroundColor: isDark ? theme.surfaceAlt : '#e8eaed' },
         ]}>
-          <Text style={[styles.srcText, { color: theme.textSub }]}>
+          <Text style={[styles.srcText, { color: theme.text }]}>
             {item.source === 'point' ? 'Tochka' : 'Ofis'}
           </Text>
         </View>

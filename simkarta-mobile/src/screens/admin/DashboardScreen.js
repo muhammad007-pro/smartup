@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
   opLegend: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 14, gap: 10 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
-  legendLabel: { fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.85)' },
+  legendLabel: { fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.9)' },
   scroll: { flex: 1 },
   content: { paddingTop: 8, paddingBottom: 90 },
   sectionTitle: {

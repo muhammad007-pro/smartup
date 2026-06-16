@@ -28,6 +28,13 @@ export default function StockScreen() {
   const [saving, setSaving]     = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [qtys, setQtys]         = useState(EMPTY_QTY);
+
+  const [reduceModal, setReduceModal]   = useState(false);
+  const [reduceUser, setReduceUser]     = useState(null);
+  const [reduceOp, setReduceOp]         = useState(null);
+  const [reduceQty, setReduceQty]       = useState('');
+  const [reduceSaving, setReduceSaving] = useState(false);
+
   const [toast, setToast]       = useState({ visible: false, message: '', type: 'success' });
 
   const showToast = (message, type = 'success') => {
@@ -54,6 +61,53 @@ export default function StockScreen() {
     setSelectedUser(user);
     setQtys(EMPTY_QTY);
     setModal(true);
+  };
+
+  const openReduce = (user) => {
+    setReduceUser(user);
+    setReduceOp(null);
+    setReduceQty('');
+    setReduceModal(true);
+  };
+
+  const handleReduce = () => {
+    if (!reduceOp) { Alert.alert('Xato', 'Operator tanlang'); return; }
+    const qty = parseInt(reduceQty, 10);
+    if (!qty || qty <= 0) { Alert.alert('Xato', 'Miqdorni kiriting'); return; }
+    const current = stockOf(reduceUser, reduceOp);
+    if (qty > current) {
+      Alert.alert('Xato', `${reduceUser.full_name}da ${reduceOp} dan faqat ${current} ta mavjud`);
+      return;
+    }
+    const opLabel = OPERATORS.find(o => o.key === reduceOp)?.label || reduceOp;
+    Alert.alert(
+      'Tasdiqlang',
+      `${reduceUser.full_name}dan ${qty} ta ${opLabel} olib tashlansinmi?`,
+      [
+        { text: 'Yo\'q', style: 'cancel' },
+        { text: 'Ha, olish', style: 'destructive', onPress: doReduce },
+      ]
+    );
+  };
+
+  const doReduce = async () => {
+    const qty = parseInt(reduceQty, 10);
+    setReduceSaving(true);
+    try {
+      await api.post('/stock/reduce', {
+        to_user_id: reduceUser.id,
+        operator: reduceOp,
+        qty,
+      });
+      setReduceModal(false);
+      const opLabel = OPERATORS.find(o => o.key === reduceOp)?.label || reduceOp;
+      showToast(`${reduceUser.full_name}dan ${qty} ta ${opLabel} olindi`);
+      fetchUsers();
+    } catch (e) {
+      Alert.alert('Xato', e.response?.data?.detail || 'Amalga oshmadi');
+    } finally {
+      setReduceSaving(false);
+    }
   };
 
   const handleIssueAll = () => {
@@ -129,7 +183,7 @@ export default function StockScreen() {
         {OPERATORS.map(op => (
           <View key={op.key} style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: op.color }]} />
-            <Text style={[styles.legendLabel, { color: theme.textSub }]}>{op.label}</Text>
+            <Text style={[styles.legendLabel, { color: theme.text }]}>{op.label}</Text>
           </View>
         ))}
       </View>
@@ -155,13 +209,22 @@ export default function StockScreen() {
                   {item.role === 'agent' ? 'Agent' : 'Sotuvchi'} · {item.phone}
                 </Text>
               </View>
-              <TouchableOpacity
-                activeOpacity={0.75}
-                style={[styles.issueBtn, { backgroundColor: theme.primary }]}
-                onPress={() => openIssue(item)}
-              >
-                <Text style={styles.issueBtnText}>Berish</Text>
-              </TouchableOpacity>
+              <View style={styles.cardBtns}>
+                <TouchableOpacity
+                  activeOpacity={0.75}
+                  style={[styles.issueBtn, { backgroundColor: theme.primary }]}
+                  onPress={() => openIssue(item)}
+                >
+                  <Text style={styles.issueBtnText}>Berish</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  activeOpacity={0.75}
+                  style={[styles.reduceBtn, { borderColor: theme.error || '#E32119' }]}
+                  onPress={() => openReduce(item)}
+                >
+                  <Text style={[styles.reduceBtnText, { color: theme.error || '#E32119' }]}>Kamaytirish</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View style={[styles.opGridDivider, { backgroundColor: theme.border }]} />
@@ -171,13 +234,91 @@ export default function StockScreen() {
                 <View key={op.key} style={styles.opCell}>
                   <View style={[styles.opDot, { backgroundColor: op.color }]} />
                   <Text style={[styles.opQty, { color: theme.text }]}>{stockOf(item, op.key)}</Text>
-                  <Text style={[styles.opLabel, { color: theme.textMuted }]}>{op.label}</Text>
+                  <Text style={[styles.opLabel, { color: theme.textSub }]}>{op.label}</Text>
                 </View>
               ))}
             </View>
           </View>
         )}
       />
+
+      {/* Kamaytirish modali */}
+      <Modal visible={reduceModal} animationType="slide" transparent>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <View style={[styles.modalBox, { backgroundColor: theme.surface }]}>
+            <View style={[styles.modalHandle, { backgroundColor: theme.border }]} />
+            <Text style={[styles.modalTitle, { color: theme.text }]}>Kamaytirish</Text>
+            {reduceUser && (
+              <Text style={[styles.modalSub, { color: theme.textSub }]}>
+                {reduceUser.full_name} · {reduceUser.phone}
+              </Text>
+            )}
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>Operator tanlang</Text>
+              <View style={styles.opChipRow}>
+                {OPERATORS.map(op => {
+                  const current = reduceUser ? stockOf(reduceUser, op.key) : 0;
+                  const selected = reduceOp === op.key;
+                  return (
+                    <TouchableOpacity
+                      key={op.key}
+                      style={[
+                        styles.opChip,
+                        { borderColor: selected ? op.color : theme.border, backgroundColor: selected ? op.color : theme.surfaceAlt },
+                      ]}
+                      onPress={() => { setReduceOp(op.key); setReduceQty(''); }}
+                    >
+                      <Text style={[styles.opChipLabel, { color: selected ? op.textColor : theme.text }]}>{op.label}</Text>
+                      <Text style={[styles.opChipQty, { color: selected ? op.textColor : theme.textSub }]}>{current} ta</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              {reduceOp && (
+                <>
+                  <Text style={[styles.fieldLabel, { color: theme.textMuted, marginTop: 16 }]}>Nechta olish</Text>
+                  <TextInput
+                    style={[styles.opInput, { color: theme.text, backgroundColor: theme.surfaceAlt, borderColor: theme.border, textAlign: 'center', fontSize: 20, padding: 14 }]}
+                    placeholder="0"
+                    placeholderTextColor={theme.textMuted}
+                    value={reduceQty}
+                    onChangeText={setReduceQty}
+                    keyboardType="number-pad"
+                  />
+                  {reduceUser && (
+                    <Text style={[styles.fieldLabel, { color: theme.textMuted, textTransform: 'none', marginTop: 6 }]}>
+                      Mavjud: {stockOf(reduceUser, reduceOp)} ta
+                    </Text>
+                  )}
+                </>
+              )}
+              <View style={styles.modalBtns}>
+                <TouchableOpacity
+                  activeOpacity={0.75}
+                  style={[styles.cancelBtn, { borderColor: theme.border, backgroundColor: theme.surfaceAlt }]}
+                  onPress={() => setReduceModal(false)}
+                >
+                  <Text style={[styles.cancelText, { color: theme.textSub }]}>Bekor</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  activeOpacity={0.75}
+                  style={[styles.confirmBtn, { backgroundColor: theme.error || '#E32119' }]}
+                  onPress={handleReduce}
+                  disabled={reduceSaving}
+                >
+                  {reduceSaving
+                    ? <ActivityIndicator color="#fff" />
+                    : <Text style={styles.confirmText}>Olish</Text>
+                  }
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       <Modal visible={modal} animationType="slide" transparent>
         <KeyboardAvoidingView
@@ -267,11 +408,19 @@ const styles = StyleSheet.create({
     borderRadius: 14, padding: 16,
   },
   cardHeader:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  cardLeft:      { flex: 1, marginRight: 12 },
+  cardLeft:      { flex: 1, marginRight: 8 },
   cardName:      { fontSize: 16, fontWeight: '700' },
   cardRole:      { fontSize: 12, marginTop: 2 },
-  issueBtn:      { borderRadius: 10, paddingHorizontal: 16, paddingVertical: 9 },
-  issueBtnText:  { color: '#fff', fontWeight: '700', fontSize: 13 },
+  cardBtns:      { flexDirection: 'column', gap: 6 },
+  issueBtn:      { borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8 },
+  issueBtnText:  { color: '#fff', fontWeight: '700', fontSize: 12 },
+  reduceBtn:     { borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1.5, backgroundColor: 'transparent' },
+  reduceBtnText: { fontWeight: '700', fontSize: 12 },
+
+  opChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
+  opChip:    { borderWidth: 1.5, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, alignItems: 'center', minWidth: 72 },
+  opChipLabel: { fontSize: 12, fontWeight: '700' },
+  opChipQty:   { fontSize: 11, marginTop: 2 },
 
   opGridDivider: { height: 1, marginVertical: 12 },
   opGrid:        { flexDirection: 'row', justifyContent: 'space-between' },

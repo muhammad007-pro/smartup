@@ -1,9 +1,10 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, ActivityIndicator,
-  RefreshControl, TouchableOpacity, Alert,
+  RefreshControl, TouchableOpacity, Alert, Linking, Platform,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import api from '../../api';
 import { useTheme } from '../../ThemeContext';
 import DateRangePicker from '../../components/DateRangePicker';
@@ -83,6 +84,19 @@ export default function PointDetailScreen({ route, navigation }) {
   const d = detail || {};
   const stockTotal = (d.point_stock || []).reduce((s, ps) => s + ps.qty, 0);
 
+  const openPhone = (phone) => {
+    Linking.openURL(`tel:${phone.replace(/\s/g, '')}`);
+  };
+
+  const openMap = (lat, lng, name) => {
+    const url = Platform.OS === 'ios'
+      ? `maps://app?daddr=${lat},${lng}`
+      : `https://maps.google.com/maps?daddr=${lat},${lng}`;
+    Linking.openURL(url).catch(() =>
+      Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`)
+    );
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <FlatList
@@ -105,6 +119,23 @@ export default function PointDetailScreen({ route, navigation }) {
               <Text style={[styles.infoLocation, { color: theme.textSub }]}>📍 {d.location}</Text>
               {d.agent_name && (
                 <Text style={[styles.infoAgent, { color: theme.primary }]}>Agent: {d.agent_name}</Text>
+              )}
+              {d.phone && (
+                <TouchableOpacity onPress={() => openPhone(d.phone)} style={styles.phoneRow} activeOpacity={0.75}>
+                  <Ionicons name="call-outline" size={14} color={theme.primary} />
+                  <Text style={[styles.phoneText, { color: theme.primary }]}>{d.phone}</Text>
+                </TouchableOpacity>
+              )}
+              {d.lat && d.lng && (
+                <TouchableOpacity onPress={() => openMap(d.lat, d.lng, d.name)} style={styles.mapRow} activeOpacity={0.75}>
+                  <Ionicons name="navigate-outline" size={14} color='#0066CC' />
+                  <Text style={[styles.mapText, { color: '#0066CC' }]}>Xaritada ochish / Yo'l ko'rsatish</Text>
+                </TouchableOpacity>
+              )}
+              {d.lat && d.lng && (
+                <Text style={[styles.coordsText, { color: theme.textMuted }]}>
+                  {d.lat.toFixed(5)}, {d.lng.toFixed(5)}
+                </Text>
               )}
               {d.is_archived && (
                 <View style={styles.archivedBanner}>
@@ -230,7 +261,12 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.07, shadowRadius: 4,
   },
   infoLocation: { fontSize: 13, marginBottom: 3 },
-  infoAgent:    { fontSize: 12, fontWeight: '500' },
+  infoAgent:    { fontSize: 12, fontWeight: '500', marginBottom: 4 },
+  phoneRow:     { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 },
+  phoneText:    { fontSize: 13, fontWeight: '600' },
+  mapRow:       { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 },
+  mapText:      { fontSize: 13, fontWeight: '600' },
+  coordsText:   { fontSize: 11, marginTop: 3, marginLeft: 19 },
   archivedBanner: {
     backgroundColor: 'rgba(227,33,25,0.12)', borderRadius: 6,
     paddingHorizontal: 10, paddingVertical: 4,

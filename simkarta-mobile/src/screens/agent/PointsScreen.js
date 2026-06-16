@@ -20,7 +20,7 @@ async function getCurrentLocation() {
 }
 
 const EMPTY_FORM = {
-  name: '', location: '', lat: null, lng: null,
+  name: '', location: '', phone: '', lat: null, lng: null,
   photos: { outside: null, inside: null, ad: null },
   stock: { beeline: '', ucell: '', uzmobile: '', mobiuz: '', oq: '' },
 };
@@ -103,6 +103,7 @@ export default function PointsScreen() {
       await api.post('/points', {
         name: form.name.trim(),
         location: form.location.trim(),
+        phone: form.phone.trim() || null,
         lat: form.lat,
         lng: form.lng,
         photo_outside: form.photos.outside,
@@ -236,6 +237,14 @@ export default function PointsScreen() {
                 placeholderTextColor={theme.textMuted}
                 value={form.location}
                 onChangeText={v => setForm(f => ({ ...f, location: v }))}
+              />
+              <TextInput
+                style={[styles.input, { borderColor: theme.border, color: theme.text, backgroundColor: theme.bg }]}
+                placeholder="+998 90 123 45 67"
+                placeholderTextColor={theme.textMuted}
+                value={form.phone}
+                onChangeText={v => setForm(f => ({ ...f, phone: v }))}
+                keyboardType="phone-pad"
               />
 
               <TouchableOpacity

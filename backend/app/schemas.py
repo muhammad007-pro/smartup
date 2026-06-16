@@ -95,6 +95,7 @@ class PointCreate(BaseModel):
     location: str
     lat: float
     lng: float
+    phone: str | None = None
     stock: list[StockEntry] = []
 
 
@@ -104,6 +105,7 @@ class PointUpdate(BaseModel):
     stock: list[StockEntry] = []
     name: str | None = None
     location: str | None = None
+    phone: str | None = None
 
 
 class PointResponse(BaseModel):
@@ -113,6 +115,7 @@ class PointResponse(BaseModel):
     location: str
     lat: float | None
     lng: float | None
+    phone: str | None = None
     photo_outside: str | None
     photo_inside: str | None
     photo_ad: str | None
@@ -148,6 +151,7 @@ class PointDetailResponse(BaseModel):
     location: str
     lat: float | None
     lng: float | None
+    phone: str | None = None
     is_archived: bool
     point_stock: list[StockEntry]
     sales: list[SaleDetailResponse]
@@ -175,6 +179,7 @@ class PointWithStock(BaseModel):
     location: str
     lat: float | None
     lng: float | None
+    phone: str | None = None
     photo_outside: str | None
     photo_inside: str | None
     photo_ad: str | None
@@ -183,6 +188,19 @@ class PointWithStock(BaseModel):
     updated_at: datetime
     point_stock: list[StockEntry]
     total_sales: int = 0
+
+
+class StockReduceRequest(BaseModel):
+    to_user_id: str
+    operator: str
+    qty: int
+
+
+class StockReduceResponse(BaseModel):
+    user_id: str
+    operator: str
+    qty_removed: int
+    qty_remaining: int
 
 
 # ---------------------------------------------------------------------------

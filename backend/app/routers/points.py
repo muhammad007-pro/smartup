@@ -24,6 +24,7 @@ from ..schemas import (
     PointCreate, PointUpdate, PointResponse, PointWithStock, StockEntry,
     PointDetailResponse, SaleDetailResponse,
 )
+
 from ..deps import get_current_user, require_role
 from ..utils import haversine_meters, write_log, GPS_LIMIT_METERS
 
@@ -44,6 +45,7 @@ def _point_to_schema(p: Point, total_sales: int = 0) -> PointWithStock:
         location=p.location,
         lat=p.lat,
         lng=p.lng,
+        phone=p.phone,
         photo_outside=p.photo_outside,
         photo_inside=p.photo_inside,
         photo_ad=p.photo_ad,
@@ -82,7 +84,9 @@ async def list_points(
     else:
         counts = {}
 
-    return [_point_to_schema(p, total_sales=counts.get(p.id, 0)) for p in points]
+    # TOP 20: eng ko'p sotgandan tartibla
+    points_sorted = sorted(points, key=lambda p: counts.get(p.id, 0), reverse=True)
+    return [_point_to_schema(p, total_sales=counts.get(p.id, 0)) for p in points_sorted]
 
 
 
@@ -123,6 +127,7 @@ async def create_point(
         location=body.location,
         lat=body.lat,
         lng=body.lng,
+        phone=body.phone,
     )
     db.add(point)
     await db.flush()   # point.id tayyor bo'lsin
@@ -230,6 +235,8 @@ async def update_point(
         point.name = body.name
     if body.location is not None:
         point.location = body.location
+    if body.phone is not None:
+        point.phone = body.phone
     point.updated_at = datetime.now(timezone.utc)
 
     summary = ", ".join(f"{e.operator}:+{e.qty}" for e in body.stock) if body.stock else "stock o'zgarishsiz"
@@ -300,6 +307,7 @@ async def point_detail(
         agent_name=point.agent.full_name if point.agent else None,
         name=point.name, location=point.location,
         lat=point.lat, lng=point.lng,
+        phone=point.phone,
         is_archived=point.is_archived,
         point_stock=[StockEntry(operator=ps.operator, qty=ps.qty) for ps in point.point_stock],
         sales=sales_out, total_sales=len(sales_out),

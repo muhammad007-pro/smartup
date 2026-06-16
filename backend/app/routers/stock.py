@@ -12,7 +12,7 @@ from sqlalchemy.orm import selectinload
 
 from ..database import get_db
 from ..models import User, Stock, Issue
-from ..schemas import StockEntry, StockResponse, UserWithStock, IssueRequest, IssueResponse
+from ..schemas import StockEntry, StockResponse, UserWithStock, IssueRequest, IssueResponse, StockReduceRequest, StockReduceResponse
 from ..deps import get_current_user, require_role
 from ..utils import OPERATORS, write_log
 
@@ -113,3 +113,48 @@ async def issue_stock(
     await db.commit()
     await db.refresh(issue)
     return issue
+
+
+@router.post("/reduce", response_model=StockReduceResponse, status_code=200)
+async def reduce_stock(
+    body: StockReduceRequest,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role("admin")),
+):
+    """Admin hodimdan simkarta oladi (kamaytiradi). Faqat admin."""
+    if body.qty <= 0:
+        raise HTTPException(status_code=400, detail="Miqdor 0 dan katta bo'lishi kerak")
+    if body.operator not in OPERATORS:
+        raise HTTPException(status_code=400, detail=f"Noto'g'ri operator. Mumkinlar: {OPERATORS}")
+
+    to_user_result = await db.execute(select(User).where(User.id == body.to_user_id))
+    to_user = to_user_result.scalar_one_or_none()
+    if not to_user:
+        raise HTTPException(status_code=404, detail="Foydalanuvchi topilmadi")
+
+    stock_result = await db.execute(
+        select(Stock).where(Stock.user_id == body.to_user_id, Stock.operator == body.operator)
+    )
+    stock = stock_result.scalar_one_or_none()
+    current = stock.qty if stock else 0
+
+    if current < body.qty:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Yetarli emas: {to_user.full_name}da {body.operator} dan {current} ta mavjud",
+        )
+
+    stock.qty -= body.qty
+
+    await write_log(
+        db, admin.id, "stock_reduce",
+        f"{admin.full_name} {to_user.full_name}dan oldi: {body.operator} x{body.qty} (qoldi: {stock.qty})",
+    )
+
+    await db.commit()
+    return StockReduceResponse(
+        user_id=to_user.id,
+        operator=body.operator,
+        qty_removed=body.qty,
+        qty_remaining=stock.qty,
+    )
