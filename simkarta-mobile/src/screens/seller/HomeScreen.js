@@ -55,7 +55,7 @@ export default function SellerHome({ navigation }) {
         getUser(),
       ]);
       setStock(stockRes.data.items || []);
-      setSales(salesRes.data || []);
+      setSales(salesRes.data?.items ?? salesRes.data ?? []);
       setUser(u);
     } catch {
     } finally {
