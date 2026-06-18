@@ -21,13 +21,25 @@ function normalizePhone(str) {
   return (str || '').replace(/[\s+\-()]/g, '');
 }
 
+// Matnni qidiruvga moslab "yumshatadi":
+// - kichik harf
+// - apostrof variantlari (oʻ, oʼ, o', o`, o´) olib tashlanadi → "o'zbekiston" == "oʻzbekiston" == "ozbekiston"
+// - ortiqcha probel bittaga, chetlari kesiladi
+function fold(str) {
+  return (str || '')
+    .toLowerCase()
+    .replace(/[ʻʼ‘’'`´]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function matchesSearch(point, query) {
-  if (!query.trim()) return true;
-  const q = query.toLowerCase().trim();
-  const qPhone = normalizePhone(q);
-  if (point.name.toLowerCase().includes(q)) return true;
-  if (point.location.toLowerCase().includes(q)) return true;
-  if (point.agent_name && point.agent_name.toLowerCase().includes(q)) return true;
+  const q = fold(query);
+  if (!q) return true;
+  const qPhone = normalizePhone(query.toLowerCase().trim());
+  if (fold(point.name).includes(q)) return true;
+  if (fold(point.location).includes(q)) return true;
+  if (point.agent_name && fold(point.agent_name).includes(q)) return true;
   if (qPhone.length >= 3 && point.agent_phone && normalizePhone(point.agent_phone).includes(qPhone)) return true;
   if (qPhone.length >= 3 && point.phone && normalizePhone(point.phone).includes(qPhone)) return true;
   return false;
@@ -41,6 +53,7 @@ export default function AdminPointsScreen({ navigation, route }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
+  const [showArchived, setShowArchived] = useState(false);
 
   const fetchPoints = useCallback(async () => {
     try {
@@ -57,9 +70,16 @@ export default function AdminPointsScreen({ navigation, route }) {
 
   useFocusEffect(useCallback(() => { fetchPoints(); }, [fetchPoints]));
 
+  const active = useMemo(() => points.filter(p => !p.is_archived), [points]);
+  const archived = useMemo(() => points.filter(p => p.is_archived), [points]);
+
+  // Default: faqat faol tochkalar (bosh sahifadagi son bilan bir xil).
+  // Arxivni ko'rsatish toggle bilan ochiladi. readOnly (Top 20) rejimda arxiv yo'q.
+  const visible = (readOnly || !showArchived) ? active : points;
+
   const filtered = useMemo(
-    () => points.filter(p => matchesSearch(p, search)),
-    [points, search],
+    () => visible.filter(p => matchesSearch(p, search)),
+    [visible, search],
   );
 
   const pointTotal = (p) => (p.point_stock || []).reduce((s, ps) => s + ps.qty, 0);
@@ -94,9 +114,6 @@ export default function AdminPointsScreen({ navigation, route }) {
     );
   }
 
-  const active = points.filter(p => !p.is_archived);
-  const archived = points.filter(p => p.is_archived);
-
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <LinearGradient colors={theme.headerGrad} style={styles.header}>
@@ -129,6 +146,25 @@ export default function AdminPointsScreen({ navigation, route }) {
           </TouchableOpacity>
         )}
       </View>
+
+      {!readOnly && archived.length > 0 && (
+        <TouchableOpacity
+          style={styles.archiveToggle}
+          onPress={() => setShowArchived(v => !v)}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name={showArchived ? 'eye-off-outline' : 'eye-outline'}
+            size={16}
+            color={theme.textSub}
+          />
+          <Text style={[styles.archiveToggleText, { color: theme.textSub }]}>
+            {showArchived
+              ? `Arxivni yashirish (${archived.length})`
+              : `Arxivlangan tochkalar (${archived.length})`}
+          </Text>
+        </TouchableOpacity>
+      )}
 
       {search.length > 0 && (
         <Text style={[styles.searchResult, { color: theme.textSub }]}>
@@ -251,6 +287,11 @@ const styles = StyleSheet.create({
     fontSize: 12, fontWeight: '500',
     marginHorizontal: 20, marginBottom: 4,
   },
+  archiveToggle: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    marginHorizontal: 20, marginTop: 6, marginBottom: 2,
+  },
+  archiveToggleText: { fontSize: 12, fontWeight: '600' },
 
   list: { padding: 12, gap: 10, paddingBottom: 90 },
 

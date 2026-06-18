@@ -43,6 +43,9 @@ export default function PointsScreen() {
   const [addPoint, setAddPoint]   = useState(null);
   const [addSaving, setAddSaving] = useState(false);
   const [addStock, setAddStock]   = useState({ beeline: '', ucell: '', uzmobile: '', mobiuz: '', oq: '' });
+  const [addPhotos, setAddPhotos]     = useState({ outside: null, inside: null, ad: null });
+  const [addPhotoIds, setAddPhotoIds] = useState({ outside: null, inside: null, ad: null });
+  const [addUploading, setAddUploading] = useState(null);
 
   const fetchPoints = useCallback(async () => {
     try {
@@ -76,11 +79,27 @@ export default function PointsScreen() {
     setForm(f => ({ ...f, photos: { ...f.photos, [key]: localUri } }));
     setUploadingPhoto(key);
     try {
-      const url = await uploadPhoto(localUri);
+      const { url } = await uploadPhoto(localUri);
       setForm(f => ({ ...f, photos: { ...f.photos, [key]: url } }));
     } catch {
     } finally {
       setUploadingPhoto(null);
+    }
+  };
+
+  // Mavjud tochkaga SIM qo'shish — tashrif rasmi (kamera, Cloudinary)
+  const handleAddPhoto = async (key, localUri) => {
+    setAddPhotos(p => ({ ...p, [key]: localUri }));
+    setAddUploading(key);
+    try {
+      const { url, public_id } = await uploadPhoto(localUri);
+      setAddPhotos(p => ({ ...p, [key]: url }));
+      setAddPhotoIds(p => ({ ...p, [key]: public_id }));
+    } catch {
+      setAddPhotos(p => ({ ...p, [key]: null }));
+      Alert.alert('Xato', 'Rasm yuklanmadi, qayta urinib ko\'ring');
+    } finally {
+      setAddUploading(null);
     }
   };
 
@@ -124,20 +143,36 @@ export default function PointsScreen() {
   const openAddStock = (point) => {
     setAddPoint(point);
     setAddStock({ beeline: '', ucell: '', uzmobile: '', mobiuz: '', oq: '' });
+    setAddPhotos({ outside: null, inside: null, ad: null });
+    setAddPhotoIds({ outside: null, inside: null, ad: null });
     setAddModal(true);
   };
+
+  // Rasm tayyor = yuklab bo'lingan (http url). Suratga olinayotgan paytda file:// bo'ladi.
+  const photoReady = (k) => typeof addPhotos[k] === 'string' && addPhotos[k].startsWith('http');
+  const addPhotosReady = photoReady('outside') && photoReady('inside') && photoReady('ad');
 
   const handleAddStock = async () => {
     const entries = OPERATORS
       .filter(op => parseInt(addStock[op.key], 10) > 0)
       .map(op => ({ operator: op.key, qty: parseInt(addStock[op.key], 10) }));
     if (!entries.length) { Alert.alert('Xato', 'Kamida bitta miqdor kiriting'); return; }
+    if (!addPhotosReady) {
+      Alert.alert('Rasm kerak', '3 ta rasm ham suratga olinishi shart (tashqi, ichki, reklama)');
+      return;
+    }
 
     setAddSaving(true);
     try {
       const loc = await getCurrentLocation();
       await api.patch(`/points/${addPoint.id}`, {
         current_lat: loc.lat, current_lng: loc.lng, stock: entries,
+        photo_outside: addPhotos.outside,
+        photo_inside:  addPhotos.inside,
+        photo_ad:      addPhotos.ad,
+        photo_outside_id: addPhotoIds.outside,
+        photo_inside_id:  addPhotoIds.inside,
+        photo_ad_id:      addPhotoIds.ad,
       });
       setAddModal(false);
       fetchPoints();
@@ -311,39 +346,62 @@ export default function PointsScreen() {
       <Modal visible={addModal} animationType="slide" transparent>
         <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <View style={[styles.modalBox, { backgroundColor: theme.surface }]}>
-            <Text style={[styles.modalTitle, { color: theme.text }]}>Simkarta qo'shish</Text>
-            {addPoint && <Text style={[styles.modalSub, { color: theme.textSub }]}>{addPoint.name}</Text>}
-            <Text style={[styles.modalNote, { color: theme.error }]}>GPS avtomatik olinadi — tochka yaqinida bo'ling (100 m)</Text>
-            {OPERATORS.map(op => (
-              <View key={op.key} style={styles.opInputRow}>
-                <View style={[styles.opMini, { backgroundColor: op.color }]}>
-                  <Text style={[styles.opMiniText, { color: op.text }]}>{op.label}</Text>
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              <Text style={[styles.modalTitle, { color: theme.text }]}>Simkarta qo'shish</Text>
+              {addPoint && <Text style={[styles.modalSub, { color: theme.textSub }]}>{addPoint.name}</Text>}
+              <Text style={[styles.modalNote, { color: theme.error }]}>GPS avtomatik olinadi — tochka yaqinida bo'ling (100 m)</Text>
+
+              <Text style={[styles.fieldLabel, { color: theme.textSub }]}>3 TA RASM (MAJBURIY, KAMERADAN)</Text>
+              <PhotoPicker label="Tashqi ko'rinish" uri={addPhotos.outside}
+                onPicked={uri => handleAddPhoto('outside', uri)} uploading={addUploading === 'outside'} />
+              <PhotoPicker label="Ichki / SIM joyi" uri={addPhotos.inside}
+                onPicked={uri => handleAddPhoto('inside', uri)} uploading={addUploading === 'inside'} />
+              <PhotoPicker label="Reklama materiali" uri={addPhotos.ad}
+                onPicked={uri => handleAddPhoto('ad', uri)} uploading={addUploading === 'ad'} />
+
+              <Text style={[styles.fieldLabel, { marginTop: 4, color: theme.textSub }]}>Qo'shiladigan simkartalar</Text>
+              {OPERATORS.map(op => (
+                <View key={op.key} style={styles.opInputRow}>
+                  <View style={[styles.opMini, { backgroundColor: op.color }]}>
+                    <Text style={[styles.opMiniText, { color: op.text }]}>{op.label}</Text>
+                  </View>
+                  <TextInput
+                    style={[styles.opInput, { borderColor: theme.border, color: theme.text, backgroundColor: theme.bg }]}
+                    placeholder="0"
+                    placeholderTextColor={theme.textMuted}
+                    value={addStock[op.key]}
+                    keyboardType="number-pad"
+                    onChangeText={v => setAddStock(s => ({ ...s, [op.key]: v }))}
+                  />
                 </View>
-                <TextInput
-                  style={[styles.opInput, { borderColor: theme.border, color: theme.text, backgroundColor: theme.bg }]}
-                  placeholder="0"
-                  placeholderTextColor={theme.textMuted}
-                  value={addStock[op.key]}
-                  keyboardType="number-pad"
-                  onChangeText={v => setAddStock(s => ({ ...s, [op.key]: v }))}
-                />
+              ))}
+
+              {!addPhotosReady && (
+                <Text style={[styles.modalNote, { color: theme.textMuted, marginTop: 8 }]}>
+                  Qo'shish uchun 3 ta rasm ham suratga olinishi shart
+                </Text>
+              )}
+
+              <View style={[styles.modalBtns, { marginTop: 8 }]}>
+                <TouchableOpacity
+                  style={[styles.cancelBtn, { borderColor: theme.border }]}
+                  onPress={() => setAddModal(false)}
+                >
+                  <Text style={[styles.cancelText, { color: theme.textSub }]}>Bekor</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.confirmBtn,
+                    { backgroundColor: theme.primary },
+                    (!addPhotosReady || !!addUploading) && { opacity: 0.5 },
+                  ]}
+                  onPress={handleAddStock}
+                  disabled={addSaving || !!addUploading || !addPhotosReady}
+                >
+                  {addSaving ? <ActivityIndicator color="#fff" /> : <Text style={styles.confirmText}>Qo'shish</Text>}
+                </TouchableOpacity>
               </View>
-            ))}
-            <View style={[styles.modalBtns, { marginTop: 8 }]}>
-              <TouchableOpacity
-                style={[styles.cancelBtn, { borderColor: theme.border }]}
-                onPress={() => setAddModal(false)}
-              >
-                <Text style={[styles.cancelText, { color: theme.textSub }]}>Bekor</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.confirmBtn, { backgroundColor: theme.primary }]}
-                onPress={handleAddStock}
-                disabled={addSaving}
-              >
-                {addSaving ? <ActivityIndicator color="#fff" /> : <Text style={styles.confirmText}>Qo'shish</Text>}
-              </TouchableOpacity>
-            </View>
+            </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>

@@ -42,7 +42,7 @@ export async function uploadPhoto(uri) {
   });
   if (!res.ok) throw new Error('Rasm yuklanmadi');
   const data = await res.json();
-  return data.url;
+  return { url: data.url, public_id: data.public_id };
 }
 
 export default api;

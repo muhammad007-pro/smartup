@@ -3,6 +3,7 @@ import { Alert } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { navigationRef } from './navigationRef';
@@ -49,6 +50,7 @@ function tabIcon(name) {
 
 function AdminTabs() {
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
   const [unread, setUnread] = useState(0);
 
   useEffect(() => {
@@ -71,8 +73,8 @@ function AdminTabs() {
       backgroundColor: theme.tabBg,
       borderTopColor:  theme.tabBorder,
       borderTopWidth:  1,
-      height:          62,
-      paddingBottom:   10,
+      height:          62 + insets.bottom,
+      paddingBottom:   10 + insets.bottom,
       paddingTop:      4,
     },
     tabBarLabelStyle: { fontSize: 10, fontWeight: '700' },
@@ -98,6 +100,7 @@ function AdminTabs() {
 
 function AgentTabs() {
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
   const tabStyle = {
     headerShown:             false,
     tabBarActiveTintColor:   theme.primary,
@@ -106,8 +109,8 @@ function AgentTabs() {
       backgroundColor: theme.tabBg,
       borderTopColor:  theme.tabBorder,
       borderTopWidth:  1,
-      height:          62,
-      paddingBottom:   10,
+      height:          62 + insets.bottom,
+      paddingBottom:   10 + insets.bottom,
       paddingTop:      4,
     },
     tabBarLabelStyle: { fontSize: 10, fontWeight: '700' },
@@ -122,6 +125,7 @@ function AgentTabs() {
 
 function SellerTabs() {
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
   const tabStyle = {
     headerShown:             false,
     tabBarActiveTintColor:   theme.primary,
@@ -130,8 +134,8 @@ function SellerTabs() {
       backgroundColor: theme.tabBg,
       borderTopColor:  theme.tabBorder,
       borderTopWidth:  1,
-      height:          62,
-      paddingBottom:   10,
+      height:          62 + insets.bottom,
+      paddingBottom:   10 + insets.bottom,
       paddingTop:      4,
     },
     tabBarLabelStyle: { fontSize: 10, fontWeight: '700' },
