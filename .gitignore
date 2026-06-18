@@ -18,6 +18,9 @@ build/
 .env
 .env.local
 
+# Ma'lumot zaxiralari (real foydalanuvchi telefonlari — GitHub'ga chiqmasin)
+backups/
+
 # IDE
 .vscode/
 .idea/

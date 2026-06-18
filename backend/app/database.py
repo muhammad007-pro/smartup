@@ -14,8 +14,20 @@ load_dotenv()
 
 _raw_url = os.getenv("DATABASE_URL", "")
 
+# Railway muhitida ekanini aniqlash (Railway bu o'zgaruvchilarni avtomatik beradi)
+_on_railway = bool(os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("RAILWAY_PROJECT_ID"))
+
 if not _raw_url:
-    # Local test: SQLite fayl (backend/ papkasida simkarta.db yaratiladi)
+    if _on_railway:
+        # XAVFSIZLIK QULFI: Railway'da DATABASE_URL bo'lmasa, jimgina SQLite'ga
+        # O'TMAYMIZ — aks holda ma'lumot konteyner bilan har deploy'da yo'qoladi.
+        # Buning o'rniga ataylab xato beramiz (loglarda ko'rinadi).
+        raise RuntimeError(
+            "DATABASE_URL o'rnatilmagan! Railway'da Postgres ulanmagan. "
+            "SQLite'ga jim o'tish o'chirib qo'yilgan (ma'lumot yo'qolishining oldini olish uchun). "
+            "Railway -> smartup xizmati -> Variables ga DATABASE_URL qo'shing."
+        )
+    # Faqat lokal dev: SQLite fayl (backend/ papkasida simkarta.db yaratiladi)
     DATABASE_URL = "sqlite+aiosqlite:///./simkarta.db"
     IS_SQLITE = True
 elif _raw_url.startswith("postgres://"):
