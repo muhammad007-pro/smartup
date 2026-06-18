@@ -107,6 +107,38 @@ class PointStock(Base):
 
 
 # ---------------------------------------------------------------------------
+# Tochka tashriflari — agent borib SIM qo'shganda 3 rasm bilan (isbot)
+# Ochilishdagi dastlabki 3 rasm ALOHIDA (Point.photo_*), bu yerga kirmaydi.
+# Har tochkada faqat oxirgi 3 tashrif saqlanadi (eskisi avtomatik o'chadi).
+# ---------------------------------------------------------------------------
+class PointVisit(Base):
+    __tablename__ = "point_visits"
+    __table_args__ = (
+        Index('ix_point_visits_point_created', 'point_id', 'created_at'),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    point_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("points.id", ondelete="CASCADE"), nullable=False
+    )
+    agent_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
+
+    # Cloudinary URL'lari
+    photo_outside: Mapped[str | None] = mapped_column(Text)
+    photo_inside: Mapped[str | None] = mapped_column(Text)
+    photo_ad: Mapped[str | None] = mapped_column(Text)
+
+    # Cloudinary public_id'lari — rasmni o'chirish uchun kerak
+    photo_outside_id: Mapped[str | None] = mapped_column(Text)
+    photo_inside_id: Mapped[str | None] = mapped_column(Text)
+    photo_ad_id: Mapped[str | None] = mapped_column(Text)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    agent: Mapped["User"] = relationship("User")
+
+
+# ---------------------------------------------------------------------------
 # Sotuvlar
 # ---------------------------------------------------------------------------
 class Sale(Base):

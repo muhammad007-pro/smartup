@@ -36,7 +36,7 @@ async def upload_photo(
     file: UploadFile = File(...),
     _user: User = Depends(get_current_user),
 ):
-    """Rasm faylini Cloudinary'ga yuklaydi va URL qaytaradi."""
+    """Rasm faylini Cloudinary'ga yuklaydi va URL + public_id qaytaradi."""
     _ensure_cloudinary()
     data = await file.read()
     result = cloudinary.uploader.upload(
@@ -45,4 +45,19 @@ async def upload_photo(
         resource_type="image",
         transformation=[{"quality": "auto", "fetch_format": "auto"}],
     )
-    return {"url": result["secure_url"]}
+    return {"url": result["secure_url"], "public_id": result["public_id"]}
+
+
+def delete_cloudinary_image(public_id: str | None) -> None:
+    """
+    Cloudinary'dan rasmni o'chiradi (best-effort).
+    public_id bo'lmasa yoki xato bo'lsa — jimgina o'tadi (ma'lumot butunligi muhimroq).
+    """
+    if not public_id:
+        return
+    try:
+        _ensure_cloudinary()
+        cloudinary.uploader.destroy(public_id, resource_type="image", invalidate=True)
+    except Exception:
+        # Yetim rasm qolishi mumkin, lekin bu jarayonni to'xtatmasligi kerak
+        pass

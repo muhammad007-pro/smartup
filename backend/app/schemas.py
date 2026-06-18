@@ -106,6 +106,26 @@ class PointUpdate(BaseModel):
     name: str | None = None
     location: str | None = None
     phone: str | None = None
+    # Tashrif rasmlari — stock qo'shilganda 3 tasi ham majburiy
+    photo_outside: str | None = None
+    photo_inside: str | None = None
+    photo_ad: str | None = None
+    photo_outside_id: str | None = None
+    photo_inside_id: str | None = None
+    photo_ad_id: str | None = None
+
+
+class PointVisitResponse(BaseModel):
+    id: str
+    point_id: str
+    agent_id: str
+    agent_name: str | None = None
+    photo_outside: str | None = None
+    photo_inside: str | None = None
+    photo_ad: str | None = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
 
 
 class PointResponse(BaseModel):

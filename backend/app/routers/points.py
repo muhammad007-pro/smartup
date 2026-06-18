@@ -19,14 +19,18 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
 from ..database import get_db
-from ..models import User, Stock, Point, PointStock, Sale, Notification
+from ..models import User, Stock, Point, PointStock, Sale, Notification, PointVisit
 from ..schemas import (
     PointCreate, PointUpdate, PointResponse, PointWithStock, StockEntry,
-    PointDetailResponse, SaleDetailResponse,
+    PointDetailResponse, SaleDetailResponse, PointVisitResponse,
 )
 
 from ..deps import get_current_user, require_role
 from ..utils import haversine_meters, write_log, GPS_LIMIT_METERS
+from .upload import delete_cloudinary_image
+
+# Har tochkada saqlanadigan tashriflar soni (eng oxirgi N tasi qoladi)
+MAX_VISITS_PER_POINT = 3
 
 
 async def _notify(db, actor: User, notif_type: str, title: str, body: str, point_id: str | None = None):
@@ -192,6 +196,14 @@ async def update_point(
                 detail=f"Juda uzoqdasiz ({dist:.0f} m). Tochkadan {GPS_LIMIT_METERS} m ichida bo'lishingiz kerak",
             )
 
+    # SIM qo'shilsa — 3 ta rasm majburiy (tashrif isboti)
+    adding_stock = len(body.stock) > 0
+    if adding_stock and not (body.photo_outside and body.photo_inside and body.photo_ad):
+        raise HTTPException(
+            status_code=400,
+            detail="SIM qo'shish uchun 3 ta rasm majburiy (tashqi, ichki, reklama)",
+        )
+
     # Avval barcha stock yetarliligini tekshirish
     for entry in body.stock:
         if entry.qty <= 0:
@@ -239,6 +251,33 @@ async def update_point(
         point.phone = body.phone
     point.updated_at = datetime.now(timezone.utc)
 
+    # Tashrif yozuvi (3 rasm bilan) + eski tashriflarni tozalash
+    pruned_public_ids: list[str | None] = []
+    if adding_stock:
+        db.add(PointVisit(
+            point_id=point_id,
+            agent_id=agent.id,
+            photo_outside=body.photo_outside,
+            photo_inside=body.photo_inside,
+            photo_ad=body.photo_ad,
+            photo_outside_id=body.photo_outside_id,
+            photo_inside_id=body.photo_inside_id,
+            photo_ad_id=body.photo_ad_id,
+        ))
+        await db.flush()
+
+        # Eng oxirgi MAX_VISITS_PER_POINT tashrifdan eskisini o'chiramiz.
+        # (Ochilish rasmlari Point'da — bu yerga kirmaydi, hech qachon o'chmaydi.)
+        old_visits = await db.execute(
+            select(PointVisit)
+            .where(PointVisit.point_id == point_id)
+            .order_by(PointVisit.created_at.desc())
+            .offset(MAX_VISITS_PER_POINT)
+        )
+        for ov in old_visits.scalars().all():
+            pruned_public_ids.extend([ov.photo_outside_id, ov.photo_inside_id, ov.photo_ad_id])
+            await db.delete(ov)
+
     summary = ", ".join(f"{e.operator}:+{e.qty}" for e in body.stock) if body.stock else "stock o'zgarishsiz"
     await write_log(
         db, agent.id, "point_update",
@@ -253,6 +292,12 @@ async def update_point(
         )
 
     await db.commit()
+
+    # DB commit muvaffaqiyatli bo'lgach, eski rasmlarni Cloudinary'dan o'chiramiz.
+    # (Avval DB, keyin Cloudinary — agar Cloudinary xato bersa, faqat yetim rasm qoladi.)
+    for pid in pruned_public_ids:
+        delete_cloudinary_image(pid)
+
     await db.refresh(point)
     return point
 
@@ -312,6 +357,29 @@ async def point_detail(
         point_stock=[StockEntry(operator=ps.operator, qty=ps.qty) for ps in point.point_stock],
         sales=sales_out, total_sales=len(sales_out),
     )
+
+
+@router.get("/{point_id}/visits", response_model=list[PointVisitResponse])
+async def point_visits(
+    point_id: str,
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(get_current_user),
+):
+    """Tochka tashriflari (agent SIM qo'shgan paytdagi 3 rasm isboti) — eng yangisi birinchi."""
+    result = await db.execute(
+        select(PointVisit, User.full_name)
+        .join(User, PointVisit.agent_id == User.id)
+        .where(PointVisit.point_id == point_id)
+        .order_by(PointVisit.created_at.desc())
+    )
+    return [
+        PointVisitResponse(
+            id=v.id, point_id=v.point_id, agent_id=v.agent_id, agent_name=name,
+            photo_outside=v.photo_outside, photo_inside=v.photo_inside, photo_ad=v.photo_ad,
+            created_at=v.created_at,
+        )
+        for v, name in result.all()
+    ]
 
 
 @router.delete("/{point_id}", status_code=204)
