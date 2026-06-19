@@ -184,8 +184,8 @@ async def update_point(
     point = result.scalar_one_or_none()
     if not point:
         raise HTTPException(status_code=404, detail="Tochka topilmadi")
-    if point.agent_id != agent.id:
-        raise HTTPException(status_code=403, detail="Bu sizning tochkangiz emas")
+    # Tochkalar umumiy: har agent istalgan tochkaga SIM qo'sha oladi.
+    # Egalik tekshiruvi olib tashlandi; GPS qulfi (100m) va 3 rasm sharti himoya bo'lib qoladi.
 
     # GPS qulfi: server masofani hisoblaydi
     if point.lat is not None and point.lng is not None:

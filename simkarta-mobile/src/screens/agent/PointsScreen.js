@@ -7,7 +7,6 @@ import {
 import * as Location from 'expo-location';
 import { LinearGradient } from 'expo-linear-gradient';
 import api, { uploadPhoto } from '../../api';
-import { getUser } from '../../auth';
 import { useTheme } from '../../ThemeContext';
 import { OPERATORS } from '../../theme';
 import PhotoPicker from '../../components/PhotoPicker';
@@ -29,7 +28,6 @@ export default function PointsScreen() {
   const { theme, isDark } = useTheme();
 
   const [points, setPoints]         = useState([]);
-  const [myId, setMyId]             = useState(null);
   const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -49,9 +47,9 @@ export default function PointsScreen() {
 
   const fetchPoints = useCallback(async () => {
     try {
-      const [res, u] = await Promise.all([api.get('/points'), getUser()]);
-      setMyId(u?.id);
-      setPoints((res.data || []).filter(p => p.agent_id === u?.id));
+      // Tochkalar umumiy — har agent barcha tochkani ko'radi va ishlay oladi
+      const res = await api.get('/points');
+      setPoints(res.data || []);
     } catch {
       Alert.alert('Xato', 'Tochkalarni yuklashda xatolik');
     } finally {
