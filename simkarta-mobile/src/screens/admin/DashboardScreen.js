@@ -220,6 +220,7 @@ export default function AdminDashboard({ navigation }) {
             ? { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border }
             : { backgroundColor: theme.surface, ...theme.card },
         ]}>
+          <View style={styles.operatorCardInner}>
           {OPERATORS.map((op, idx) => {
             const salesQty = (d.sales_by_operator || {})[op.key] ?? 0;
             const pct = totalOpSales > 0 ? Math.max((salesQty / totalOpSales) * 100, salesQty > 0 ? 4 : 0) : 0;
@@ -242,6 +243,7 @@ export default function AdminDashboard({ navigation }) {
               </View>
             );
           })}
+          </View>
         </View>
 
         {/* Stock qoldig'i */}
@@ -252,6 +254,7 @@ export default function AdminDashboard({ navigation }) {
             ? { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border }
             : { backgroundColor: theme.surface, ...theme.card },
         ]}>
+          <View style={styles.operatorCardInner}>
           {OPERATORS.map((op, idx) => {
             const qty = (d.stock_by_operator || {})[op.key] ?? 0;
             const maxBar = Math.max(...OPERATORS.map(o => (d.stock_by_operator || {})[o.key] ?? 0), 1);
@@ -275,6 +278,7 @@ export default function AdminDashboard({ navigation }) {
               </View>
             );
           })}
+          </View>
         </View>
       </ScrollView>
     </View>
@@ -332,7 +336,11 @@ const styles = StyleSheet.create({
   alertTitle: { fontSize: 13, fontWeight: '700' },
   alertSub:   { fontSize: 11, marginTop: 1 },
 
-  operatorCard: { marginHorizontal: 16, borderRadius: 14, overflow: 'hidden' },
+  operatorCard: { marginHorizontal: 16, borderRadius: 14 },
+  // overflow:'hidden' lives on the inner view, NOT on the elevated card —
+  // Android repaints an elevated view's background over its children when
+  // overflow:'hidden' is on the same view, which blanked the card in light mode.
+  operatorCardInner: { borderRadius: 14, overflow: 'hidden' },
   opRow: {
     flexDirection: 'row', alignItems: 'center',
     paddingVertical: 13, paddingHorizontal: 14,

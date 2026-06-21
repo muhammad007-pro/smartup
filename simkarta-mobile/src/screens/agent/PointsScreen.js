@@ -1,15 +1,42 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   Modal, Alert, ActivityIndicator, RefreshControl,
   KeyboardAvoidingView, Platform, TextInput, ScrollView,
 } from 'react-native';
 import * as Location from 'expo-location';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import api, { uploadPhoto } from '../../api';
 import { useTheme } from '../../ThemeContext';
 import { OPERATORS } from '../../theme';
 import PhotoPicker from '../../components/PhotoPicker';
+
+function normalizePhone(str) {
+  return (str || '').replace(/[\s+\-()]/g, '');
+}
+
+// Matnni qidiruvga moslab "yumshatadi" (Admin ekrandagi bilan bir xil):
+// kichik harf, apostrof variantlari olib tashlanadi, ortiqcha probel bittaga.
+function fold(str) {
+  return (str || '')
+    .toLowerCase()
+    .replace(/[ʻʼ‘’'`´]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function matchesSearch(point, query) {
+  const q = fold(query);
+  if (!q) return true;
+  const qPhone = normalizePhone(query.toLowerCase().trim());
+  if (fold(point.name).includes(q)) return true;
+  if (fold(point.location).includes(q)) return true;
+  if (point.agent_name && fold(point.agent_name).includes(q)) return true;
+  if (qPhone.length >= 3 && point.agent_phone && normalizePhone(point.agent_phone).includes(qPhone)) return true;
+  if (qPhone.length >= 3 && point.phone && normalizePhone(point.phone).includes(qPhone)) return true;
+  return false;
+}
 
 async function getCurrentLocation() {
   const { status } = await Location.requestForegroundPermissionsAsync();
@@ -30,6 +57,7 @@ export default function PointsScreen() {
   const [points, setPoints]         = useState([]);
   const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [search, setSearch]         = useState('');
 
   const [createModal, setCreateModal]       = useState(false);
   const [creating, setCreating]             = useState(false);
@@ -184,6 +212,11 @@ export default function PointsScreen() {
   const pointTotal = (p) => (p.point_stock || []).reduce((s, ps) => s + ps.qty, 0);
   const stockOf = (p, op) => (p.point_stock || []).find(s => s.operator === op)?.qty ?? 0;
 
+  const filtered = useMemo(
+    () => points.filter(p => matchesSearch(p, search)),
+    [points, search],
+  );
+
   if (loading) {
     return (
       <View style={[styles.center, { backgroundColor: theme.bg }]}>
@@ -208,16 +241,48 @@ export default function PointsScreen() {
         </TouchableOpacity>
       </LinearGradient>
 
+      <View style={[
+        styles.searchWrap,
+        { backgroundColor: theme.surface, borderColor: theme.border },
+        isDark && { borderWidth: 1 },
+      ]}>
+        <Ionicons name="search-outline" size={18} color={theme.textMuted} style={styles.searchIcon} />
+        <TextInput
+          style={[styles.searchInput, { color: theme.text }]}
+          placeholder="Nomi, hudud yoki telefon raqami..."
+          placeholderTextColor={theme.textMuted}
+          value={search}
+          onChangeText={setSearch}
+          returnKeyType="search"
+          clearButtonMode="while-editing"
+        />
+        {search.length > 0 && (
+          <TouchableOpacity onPress={() => setSearch('')} style={styles.clearBtn}>
+            <Ionicons name="close-circle" size={18} color={theme.textMuted} />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {search.length > 0 && (
+        <Text style={[styles.searchResult, { color: theme.textSub }]}>
+          {filtered.length} ta natija topildi
+        </Text>
+      )}
+
       <FlatList
-        data={points}
+        data={filtered}
         keyExtractor={p => p.id}
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyIcon}>📍</Text>
-            <Text style={[styles.emptyTitle, { color: theme.text }]}>Tochkalar yo'q</Text>
-            <Text style={[styles.emptySub, { color: theme.textSub }]}>"+ Yangi" tugmasini bosing</Text>
+            <Text style={[styles.emptyTitle, { color: theme.text }]}>
+              {search.length > 0 ? 'Natija topilmadi' : 'Tochkalar yo\'q'}
+            </Text>
+            {search.length === 0 && (
+              <Text style={[styles.emptySub, { color: theme.textSub }]}>"+ Yangi" tugmasini bosing</Text>
+            )}
           </View>
         }
         renderItem={({ item }) => (
@@ -417,6 +482,21 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 22, fontWeight: '700', color: '#fff' },
   addBtn:      { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 7 },
   addBtnText:  { color: '#fff', fontWeight: '600', fontSize: 14 },
+
+  searchWrap: {
+    flexDirection: 'row', alignItems: 'center',
+    marginHorizontal: 16, marginTop: 12, marginBottom: 4,
+    borderRadius: 12, borderWidth: 1,
+    paddingHorizontal: 12, paddingVertical: 2,
+    elevation: 1,
+  },
+  searchIcon:   { marginRight: 8 },
+  searchInput:  { flex: 1, fontSize: 14, paddingVertical: 10 },
+  clearBtn:     { padding: 4 },
+  searchResult: {
+    fontSize: 12, fontWeight: '500',
+    marginHorizontal: 20, marginBottom: 4,
+  },
 
   list: { padding: 12, gap: 10, paddingBottom: 90 },
 
