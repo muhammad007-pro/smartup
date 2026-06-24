@@ -180,7 +180,7 @@ export default function UsersScreen() {
       />
 
       <Modal visible={modalVisible} animationType="slide" transparent>
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={[styles.modalBox, { backgroundColor: theme.surface }]}>
             <View style={[styles.modalHandle, { backgroundColor: theme.border }]} />
             <Text style={[styles.modalTitle, { color: theme.text }]}>Yangi xodim</Text>

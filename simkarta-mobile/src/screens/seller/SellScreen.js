@@ -1,13 +1,24 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity,
+  View, Text, StyleSheet, TouchableOpacity, TextInput,
   ScrollView, Alert, ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import api from '../../api';
 import { useTheme } from '../../ThemeContext';
 import { OPERATORS } from '../../theme';
 import Toast from '../../components/Toast';
+
+// Matnni qidiruvga moslab "yumshatadi" (Admin/Agent ekrandagi bilan bir xil):
+// kichik harf, apostrof variantlari olib tashlanadi, ortiqcha probel bittaga.
+function fold(str) {
+  return (str || '')
+    .toLowerCase()
+    .replace(/[ʻʼ‘’'`´]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 export default function SellScreen() {
   const { theme, isDark } = useTheme();
@@ -22,6 +33,14 @@ export default function SellScreen() {
   const [selectedPoint, setSelectedPoint] = useState(null);
   const [selling, setSelling]             = useState(false);
   const [toast, setToast]                 = useState({ visible: false, message: '', type: 'success' });
+  const [pointSearch, setPointSearch]     = useState('');
+
+  // Tochkalarni nom yoki hudud bo'yicha real-time filtrlash (useMemo — qaltiramaydi)
+  const filteredPoints = useMemo(() => {
+    const q = fold(pointSearch);
+    if (!q) return points;
+    return points.filter(p => fold(p.name).includes(q) || fold(p.location).includes(q));
+  }, [points, pointSearch]);
 
   const showToast = (message, type = 'success') => {
     setToast({ visible: true, message, type });
@@ -57,6 +76,7 @@ export default function SellScreen() {
     setMode(m);
     setSelectedOp(null);
     setSelectedPoint(null);
+    setPointSearch('');
   };
 
   const stockQty = (opKey) => (stock.find(s => s.operator === opKey)?.qty ?? 0);
@@ -180,9 +200,38 @@ export default function SellScreen() {
         {mode === 'point' && (
           <>
             <Text style={[styles.sectionLabel, { color: theme.textSub }]}>Tochka tanlang</Text>
+
+            {points.length > 0 && (
+              <View style={[
+                styles.searchWrap,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+                isDark && { borderWidth: 1 },
+              ]}>
+                <Ionicons name="search-outline" size={18} color={theme.textMuted} style={styles.searchIcon} />
+                <TextInput
+                  style={[styles.searchInput, { color: theme.text }]}
+                  placeholder="Tochka nomi yoki hudud..."
+                  placeholderTextColor={theme.textMuted}
+                  value={pointSearch}
+                  onChangeText={setPointSearch}
+                  returnKeyType="search"
+                  clearButtonMode="while-editing"
+                />
+                {pointSearch.length > 0 && (
+                  <TouchableOpacity onPress={() => setPointSearch('')} style={styles.clearBtn}>
+                    <Ionicons name="close-circle" size={18} color={theme.textMuted} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+
             {points.length === 0 ? (
               <View style={[styles.emptyBox, { backgroundColor: theme.surface }, isDark && { borderWidth: 1, borderColor: theme.border }]}>
                 <Text style={[styles.emptyText, { color: theme.textSub }]}>Tochkalar yo'q</Text>
+              </View>
+            ) : filteredPoints.length === 0 ? (
+              <View style={[styles.emptyBox, { backgroundColor: theme.surface }, isDark && { borderWidth: 1, borderColor: theme.border }]}>
+                <Text style={[styles.emptyText, { color: theme.textSub }]}>Natija topilmadi</Text>
               </View>
             ) : (
               <View style={[
@@ -191,7 +240,7 @@ export default function SellScreen() {
                 isDark && { borderWidth: 1, borderColor: theme.border },
                 theme.card,
               ]}>
-                {points.map((p, i) => {
+                {filteredPoints.map((p, i) => {
                   const total = (p.point_stock || []).reduce((s, ps) => s + ps.qty, 0);
                   const isSelected = selectedPoint?.id === p.id;
                   return (
@@ -199,7 +248,7 @@ export default function SellScreen() {
                       key={p.id}
                       style={[
                         styles.pointRow,
-                        i < points.length - 1 && { borderBottomWidth: 1, borderBottomColor: theme.border },
+                        i < filteredPoints.length - 1 && { borderBottomWidth: 1, borderBottomColor: theme.border },
                         isSelected && { backgroundColor: isDark ? theme.surfaceAlt : '#f0faf5' },
                       ]}
                       onPress={() => { setSelectedPoint(p); setSelectedOp(null); }}
@@ -326,6 +375,17 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase', letterSpacing: 0.8,
     marginBottom: 8, marginHorizontal: 16,
   },
+
+  searchWrap: {
+    flexDirection: 'row', alignItems: 'center',
+    marginHorizontal: 16, marginBottom: 10,
+    borderRadius: 12, borderWidth: 1,
+    paddingHorizontal: 12, paddingVertical: 2,
+    elevation: 1,
+  },
+  searchIcon:  { marginRight: 8 },
+  searchInput: { flex: 1, fontSize: 14, paddingVertical: 10 },
+  clearBtn:    { padding: 4 },
 
   listCard: {
     marginHorizontal: 16, marginBottom: 16,

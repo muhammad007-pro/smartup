@@ -246,7 +246,7 @@ export default function StockScreen() {
       <Modal visible={reduceModal} animationType="slide" transparent>
         <KeyboardAvoidingView
           style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
           <View style={[styles.modalBox, { backgroundColor: theme.surface }]}>
             <View style={[styles.modalHandle, { backgroundColor: theme.border }]} />
@@ -323,7 +323,7 @@ export default function StockScreen() {
       <Modal visible={modal} animationType="slide" transparent>
         <KeyboardAvoidingView
           style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
           <View style={[styles.modalBox, { backgroundColor: theme.surface }]}>
             <View style={[styles.modalHandle, { backgroundColor: theme.border }]} />

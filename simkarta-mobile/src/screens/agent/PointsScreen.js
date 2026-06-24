@@ -317,7 +317,7 @@ export default function PointsScreen() {
       />
 
       <Modal visible={createModal} animationType="slide" transparent>
-        <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={[styles.modalBox, { backgroundColor: theme.surface }]}>
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               <Text style={[styles.modalTitle, { color: theme.text }]}>Yangi tochka</Text>
@@ -407,7 +407,7 @@ export default function PointsScreen() {
       </Modal>
 
       <Modal visible={addModal} animationType="slide" transparent>
-        <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={[styles.modalBox, { backgroundColor: theme.surface }]}>
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               <Text style={[styles.modalTitle, { color: theme.text }]}>Simkarta qo'shish</Text>
