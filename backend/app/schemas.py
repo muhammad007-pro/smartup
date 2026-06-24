@@ -96,6 +96,10 @@ class PointCreate(BaseModel):
     lat: float
     lng: float
     phone: str | None = None
+    # Ochilish rasmlari — tochka ochilganda 3 tasi ham majburiy (server tomonda tekshiriladi)
+    photo_outside: str | None = None
+    photo_inside: str | None = None
+    photo_ad: str | None = None
     stock: list[StockEntry] = []
 
 

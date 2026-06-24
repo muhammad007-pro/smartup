@@ -27,7 +27,7 @@ from ..schemas import (
 
 from ..deps import get_current_user, require_role
 from ..utils import haversine_meters, write_log, GPS_LIMIT_METERS
-from .upload import delete_cloudinary_image
+from .upload import delete_storage_image
 
 # Har tochkada saqlanadigan tashriflar soni (eng oxirgi N tasi qoladi)
 MAX_VISITS_PER_POINT = 3
@@ -108,6 +108,14 @@ async def create_point(
     2. Atomik tranzaksiya: tochka yaratiladi, agent stock dan minus, point_stock ga plus.
     3. Activity log yoziladi.
     """
+    # Ochilish rasmlari majburiy (3 tasi ham) — server tomonda tekshiramiz,
+    # mobil ilovaga ishonmaymiz.
+    if not (body.photo_outside and body.photo_inside and body.photo_ad):
+        raise HTTPException(
+            status_code=400,
+            detail="Tochka ochish uchun 3 ta rasm majburiy (tashqi, ichki, reklama)",
+        )
+
     # Birinchi: barcha kerakli stock mavjudligini tekshirish
     for entry in body.stock:
         if entry.qty <= 0:
@@ -124,7 +132,7 @@ async def create_point(
                 detail=f"{entry.operator}: yetarli simkarta yo'q (kerak {entry.qty}, mavjud {available})",
             )
 
-    # Tochkani yaratish
+    # Tochkani yaratish (ochilish rasmlari bilan)
     point = Point(
         agent_id=agent.id,
         name=body.name,
@@ -132,6 +140,9 @@ async def create_point(
         lat=body.lat,
         lng=body.lng,
         phone=body.phone,
+        photo_outside=body.photo_outside,
+        photo_inside=body.photo_inside,
+        photo_ad=body.photo_ad,
     )
     db.add(point)
     await db.flush()   # point.id tayyor bo'lsin
@@ -293,10 +304,10 @@ async def update_point(
 
     await db.commit()
 
-    # DB commit muvaffaqiyatli bo'lgach, eski rasmlarni Cloudinary'dan o'chiramiz.
-    # (Avval DB, keyin Cloudinary — agar Cloudinary xato bersa, faqat yetim rasm qoladi.)
+    # DB commit muvaffaqiyatli bo'lgach, eski rasmlarni Supabase Storage'dan o'chiramiz.
+    # (Avval DB, keyin Storage — agar Storage xato bersa, faqat yetim fayl qoladi.)
     for pid in pruned_public_ids:
-        delete_cloudinary_image(pid)
+        delete_storage_image(pid)
 
     await db.refresh(point)
     return point

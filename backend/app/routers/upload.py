@@ -1,12 +1,16 @@
 """
-Rasm yuklash — Cloudinary orqali.
+Rasm yuklash — Supabase Storage orqali.
 
-POST /upload  — fayl yuboriladi, Cloudinary URL qaytariladi.
-CLOUDINARY_URL muhit o'zgaruvchisi bo'lmasa 503 qaytariladi.
+POST /upload  — fayl yuboriladi, public URL qaytariladi.
+SUPABASE_URL yoki SUPABASE_KEY muhit o'zgaruvchisi bo'lmasa 503 qaytariladi.
+
+Bucket: "sim-photos" (PUBLIC bo'lishi shart — public URL shu asosda qaytariladi).
 """
 import os
-import cloudinary
-import cloudinary.uploader
+import re
+import uuid
+
+import requests
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 
 from ..deps import get_current_user
@@ -14,21 +18,26 @@ from ..models import User
 
 router = APIRouter(tags=["upload"])
 
-_configured = False
+# Supabase Storage bucket nomi (Supabase panelida PUBLIC qilib yaratilgan)
+BUCKET = "sim-photos"
 
 
-def _ensure_cloudinary():
-    global _configured
-    if _configured:
-        return
-    url = os.getenv("CLOUDINARY_URL")
-    if not url:
+def _supabase_creds() -> tuple[str, str]:
+    """SUPABASE_URL va SUPABASE_KEY ni o'qiydi; bo'lmasa 503."""
+    url = os.getenv("SUPABASE_URL")
+    key = os.getenv("SUPABASE_KEY")
+    if not url or not key:
         raise HTTPException(
             status_code=503,
-            detail="CLOUDINARY_URL muhit o'zgaruvchisi sozlanmagan",
+            detail="SUPABASE_URL yoki SUPABASE_KEY muhit o'zgaruvchisi sozlanmagan",
         )
-    cloudinary.config(cloudinary_url=url)
-    _configured = True
+    return url.rstrip("/"), key
+
+
+def _safe_name(name: str | None) -> str:
+    """Original fayl nomini xavfsiz holatga keltiradi (faqat harf/raqam/._-)."""
+    cleaned = re.sub(r"[^A-Za-z0-9._-]", "_", name or "")
+    return cleaned[-60:] or "photo.jpg"
 
 
 @router.post("/upload")
@@ -36,28 +45,54 @@ async def upload_photo(
     file: UploadFile = File(...),
     _user: User = Depends(get_current_user),
 ):
-    """Rasm faylini Cloudinary'ga yuklaydi va URL + public_id qaytaradi."""
-    _ensure_cloudinary()
+    """Rasm faylini Supabase Storage'ga yuklaydi va public URL + path qaytaradi."""
+    base, key = _supabase_creds()
     data = await file.read()
-    result = cloudinary.uploader.upload(
-        data,
-        folder="simkarta",
-        resource_type="image",
-        transformation=[{"quality": "auto", "fetch_format": "auto"}],
+
+    # Unikal fayl nomi: uuid + original nom (to'qnashuvni oldini oladi)
+    path = f"{uuid.uuid4().hex}_{_safe_name(file.filename)}"
+    content_type = file.content_type or "image/jpeg"
+
+    res = requests.post(
+        f"{base}/storage/v1/object/{BUCKET}/{path}",
+        data=data,
+        headers={
+            "Authorization": f"Bearer {key}",
+            "apikey": key,
+            "Content-Type": content_type,
+            "x-upsert": "true",
+        },
+        timeout=30,
     )
-    return {"url": result["secure_url"], "public_id": result["public_id"]}
+    if not res.ok:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Supabase Storage yuklash xatosi ({res.status_code}): {res.text[:200]}",
+        )
+
+    # Public bucket'dagi to'g'ridan-to'g'ri ko'rinadigan URL
+    public_url = f"{base}/storage/v1/object/public/{BUCKET}/{path}"
+
+    # Javob shakli Cloudinary bilan bir xil: {url, public_id}. Frontend o'zgarmaydi.
+    # public_id = bucket ichidagi path (keyinchalik o'chirish uchun ishlatiladi).
+    return {"url": public_url, "public_id": path}
 
 
-def delete_cloudinary_image(public_id: str | None) -> None:
+def delete_storage_image(public_id: str | None) -> None:
     """
-    Cloudinary'dan rasmni o'chiradi (best-effort).
-    public_id bo'lmasa yoki xato bo'lsa — jimgina o'tadi (ma'lumot butunligi muhimroq).
+    Supabase Storage'dan rasmni o'chiradi (best-effort).
+    public_id (bucket ichidagi path) bo'lmasa yoki xato bo'lsa — jimgina o'tadi
+    (ma'lumot butunligi muhimroq; yetim fayl qolishi mumkin).
     """
     if not public_id:
         return
     try:
-        _ensure_cloudinary()
-        cloudinary.uploader.destroy(public_id, resource_type="image", invalidate=True)
+        base, key = _supabase_creds()
+        requests.delete(
+            f"{base}/storage/v1/object/{BUCKET}/{public_id}",
+            headers={"Authorization": f"Bearer {key}", "apikey": key},
+            timeout=15,
+        )
     except Exception:
-        # Yetim rasm qolishi mumkin, lekin bu jarayonni to'xtatmasligi kerak
+        # Yetim fayl qolishi mumkin, lekin bu jarayonni to'xtatmasligi kerak
         pass

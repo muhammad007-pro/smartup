@@ -108,6 +108,8 @@ export default function PointsScreen() {
       const { url } = await uploadPhoto(localUri);
       setForm(f => ({ ...f, photos: { ...f.photos, [key]: url } }));
     } catch {
+      setForm(f => ({ ...f, photos: { ...f.photos, [key]: null } }));
+      Alert.alert('Xato', 'Rasm yuklanmadi, qayta urinib ko\'ring');
     } finally {
       setUploadingPhoto(null);
     }
@@ -136,8 +138,13 @@ export default function PointsScreen() {
     if (!form.lat) {
       Alert.alert('Xato', 'GPS koordinatani oling'); return;
     }
-    if (!form.photos.outside || !form.photos.inside || !form.photos.ad) {
-      Alert.alert('Xato', 'Barcha 3 ta rasm majburiy (tashqi, ichki, reklama)'); return;
+    // Rasmlar haqiqatan yuklangan bo'lishi shart (http URL), file:// qoldiq o'tmasin
+    const photosUploaded =
+      (form.photos.outside || '').startsWith('http') &&
+      (form.photos.inside  || '').startsWith('http') &&
+      (form.photos.ad      || '').startsWith('http');
+    if (!photosUploaded) {
+      Alert.alert('Xato', 'Barcha 3 ta rasm yuklanishi shart (tashqi, ichki, reklama)'); return;
     }
     const stockEntries = OPERATORS
       .filter(op => parseInt(form.stock[op.key], 10) > 0)
